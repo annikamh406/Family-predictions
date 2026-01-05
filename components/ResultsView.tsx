@@ -66,7 +66,6 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
             .select('*, user:users(username)')
 
         if (preds) {
-            // @ts-expect-error Supabase types
             const sorted = sortPredictionsByCategory(preds as Prediction[])
             setPredictions(sorted)
         }

@@ -55,7 +55,6 @@ export function BettingView({ year }: { year: number }) {
             .eq('user_id', user.id)
 
         if (predsData) {
-            // @ts-expect-error Supabase types
             const rawPreds = predsData as Prediction[]
             setPredictions(sortPredictionsByCategory(rawPreds))
         }
