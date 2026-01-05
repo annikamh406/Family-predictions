@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import { useUser } from "@/contexts/UserContext"
 import { supabase } from "@/utils/supabase"
-import { Loader2, Check, AlertCircle } from "lucide-react"
+import { Loader2, Check, AlertCircle, LayoutGrid, Table2 } from "lucide-react"
+import { ForecastingSummary } from "./ForecastingSummary"
 import {
     CATEGORY_LABELS,
     CATEGORY_BG_COLORS,
@@ -24,6 +25,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 export function ForecastingView({ year }: { year: number }) {
     const { user } = useUser()
+    const [viewMode, setViewMode] = useState<'cards' | 'summary'>('cards')
     const [predictions, setPredictions] = useState<Record<string, string>>({})
     const [originalPredictions, setOriginalPredictions] = useState<Record<string, PredictionRecord>>({})
     const [status, setStatus] = useState<Record<string, SaveStatus>>({})
@@ -147,56 +149,80 @@ export function ForecastingView({ year }: { year: number }) {
                 <div className="flex justify-between items-center max-w-2xl mx-auto">
                     <h1 className="text-3xl font-bold text-stone-800">Your {year} Forecast</h1>
                 </div>
-                <p className="text-stone-500 max-w-lg mx-auto">
-                    Make 4 bold predictions. Changes save automatically.
+                <div className="flex justify-center gap-2 pt-2">
+                    <button
+                        onClick={() => setViewMode('cards')}
+                        className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                            viewMode === 'cards' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
+                        )}
+                    >
+                        <LayoutGrid className="w-4 h-4" /> Cards
+                    </button>
+                    <button
+                        onClick={() => setViewMode('summary')}
+                        className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                            viewMode === 'summary' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
+                        )}
+                    >
+                        <Table2 className="w-4 h-4" /> Summary
+                    </button>
+                </div>
+                <p className="text-stone-500 max-w-lg mx-auto text-sm pt-2">
+                    {viewMode === 'cards' ? "Make 4 bold predictions. Changes save automatically." : "View everyone's predictions."}
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6">
-                {CATEGORIES.map((cat) => (
-                    <div
-                        key={cat}
-                        className={cn(
-                            "group p-6 rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md relative",
-                            CATEGORY_BG_COLORS[cat]
-                        )}
-                    >
-                        <div className="flex items-center justify-between mb-3">
-                            <span className={cn(
-                                "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-                                CATEGORY_COLORS[cat]
-                            )}>
-                                {CATEGORY_LABELS[cat]}
-                            </span>
+            {viewMode === 'summary' ? (
+                <ForecastingSummary year={year} />
+            ) : (
+                <div className="grid grid-cols-1 gap-6">
+                    {CATEGORIES.map((cat) => (
+                        <div
+                            key={cat}
+                            className={cn(
+                                "group p-6 rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md relative",
+                                CATEGORY_BG_COLORS[cat]
+                            )}
+                        >
+                            <div className="flex items-center justify-between mb-3">
+                                <span className={cn(
+                                    "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
+                                    CATEGORY_COLORS[cat]
+                                )}>
+                                    {CATEGORY_LABELS[cat]}
+                                </span>
 
-                            {/* Status Indicator */}
-                            <div className="h-6 flex items-center">
-                                {status[cat] === 'saving' && (
-                                    <span className="text-xs text-stone-400 flex items-center animate-pulse">
-                                        <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Saving...
-                                    </span>
-                                )}
-                                {status[cat] === 'saved' && (
-                                    <span className="text-xs text-green-600 flex items-center font-medium animate-in fade-in slide-in-from-bottom-2">
-                                        <Check className="w-3 h-3 mr-1" /> Saved
-                                    </span>
-                                )}
-                                {status[cat] === 'error' && (
-                                    <span className="text-xs text-red-500 flex items-center font-medium">
-                                        <AlertCircle className="w-3 h-3 mr-1" /> Error
-                                    </span>
-                                )}
+                                {/* Status Indicator */}
+                                <div className="h-6 flex items-center">
+                                    {status[cat] === 'saving' && (
+                                        <span className="text-xs text-stone-400 flex items-center animate-pulse">
+                                            <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Saving...
+                                        </span>
+                                    )}
+                                    {status[cat] === 'saved' && (
+                                        <span className="text-xs text-green-600 flex items-center font-medium animate-in fade-in slide-in-from-bottom-2">
+                                            <Check className="w-3 h-3 mr-1" /> Saved
+                                        </span>
+                                    )}
+                                    {status[cat] === 'error' && (
+                                        <span className="text-xs text-red-500 flex items-center font-medium">
+                                            <AlertCircle className="w-3 h-3 mr-1" /> Error
+                                        </span>
+                                    )}
+                                </div>
                             </div>
+                            <textarea
+                                value={predictions[cat] || ''}
+                                onChange={(e) => handleChange(cat, e.target.value)}
+                                placeholder={`Enter your ${CATEGORY_LABELS[cat].toLowerCase()} prediction...`}
+                                className="w-full bg-white/50 border-0 rounded-xl p-4 text-stone-900 placeholder:text-stone-400 focus:ring-2 focus:ring-black/5 resize-none h-24 text-lg leading-relaxed shadow-inner"
+                            />
                         </div>
-                        <textarea
-                            value={predictions[cat] || ''}
-                            onChange={(e) => handleChange(cat, e.target.value)}
-                            placeholder={`Enter your ${CATEGORY_LABELS[cat].toLowerCase()} prediction...`}
-                            className="w-full bg-white/50 border-0 rounded-xl p-4 text-stone-900 placeholder:text-stone-400 focus:ring-2 focus:ring-black/5 resize-none h-24 text-lg leading-relaxed shadow-inner"
-                        />
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
             <div className="text-center text-xs text-stone-300 pt-8">
                 All changes saved to cloud automatically

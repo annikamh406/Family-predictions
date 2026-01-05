@@ -4,8 +4,9 @@ import { useState, useEffect } from "react"
 import { useUser } from "@/contexts/UserContext"
 import { supabase } from "@/utils/supabase"
 import { Button } from "./ui/Button"
-import { Loader2, Trophy, Check, X, Minus, Medal, Info, Bot, Lock } from "lucide-react"
+import { Loader2, Trophy, Check, X, Minus, Medal, Info, Bot, Lock, LayoutGrid, Table2 } from "lucide-react"
 import { cn } from "@/utils/cn"
+import { ResultsSummary } from "./ResultsSummary"
 import {
     CATEGORY_LABELS,
     CATEGORY_COLORS,
@@ -50,6 +51,7 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
     const [predStats, setPredStats] = useState<Record<string, PredictionStats>>({})
     const [isLoading, setIsLoading] = useState(true)
     const [showBots, setShowBots] = useState(false)
+    const [viewMode, setViewMode] = useState<'cards' | 'summary'>('cards')
 
     useEffect(() => {
         fetchData()
@@ -283,64 +285,90 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
             </div>
 
             <div className="pt-8 space-y-4">
-                <div>
-                    <h3 className="text-xl font-bold text-stone-800">Event Results</h3>
-                    <p className="text-stone-500">
-                        {isLocked ? "Final Results. Locked." : "Sorted by likelihood. Admin click to toggle."}
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4">
-                    {predictions.map((pred) => (
-                        <div
-                            key={pred.id}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div>
+                        <h3 className="text-xl font-bold text-stone-800">Event Results</h3>
+                        <p className="text-stone-500">
+                            {isLocked ? "Final Results. Locked." : "Sorted by likelihood. Admin click to toggle."}
+                        </p>
+                    </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setViewMode('cards')}
                             className={cn(
-                                "flex items-center justify-between gap-4 p-5 rounded-xl border transition-all hover:scale-[1.01]",
-                                "glass-panel shadow-sm",
-                                CATEGORY_BG_COLORS[pred.category]
+                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                                viewMode === 'cards' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
                             )}
                         >
-                            <div className="flex-1 space-y-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <span className={cn(
-                                        "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
-                                        CATEGORY_COLORS[pred.category]
-                                    )}>
-                                        {pred.user?.username.slice(0, 10)} &bull; {CATEGORY_LABELS[pred.category]}
-                                    </span>
-                                    {predStats[pred.id] && (
-                                        <div className="flex gap-2">
-                                            <span className="text-xs font-bold text-stone-600 bg-white/80 px-2 py-1 rounded-md border border-stone-200 shadow-sm flex items-center gap-1">
-                                                👥 Avg: {predStats[pred.id].avg}%
-                                            </span>
-                                            <span className="text-xs text-stone-500 bg-white/50 px-2 py-1 rounded-md border border-stone-200 flex items-center gap-1">
-                                                Range: {predStats[pred.id].min}% - {predStats[pred.id].max}%
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                                <p className="text-stone-800 font-medium text-lg leading-snug">{pred.description}</p>
-                            </div>
+                            <LayoutGrid className="w-4 h-4" /> Cards
+                        </button>
+                        <button
+                            onClick={() => setViewMode('summary')}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                                viewMode === 'summary' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
+                            )}
+                        >
+                            <Table2 className="w-4 h-4" /> Summary
+                        </button>
+                    </div>
+                </div>
 
-                            <button
-                                onClick={() => toggleOutcome(pred.id, pred.did_happen)}
-                                disabled={isLocked}
+                {viewMode === 'summary' ? (
+                    <ResultsSummary year={year} />
+                ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                        {predictions.map((pred) => (
+                            <div
+                                key={pred.id}
                                 className={cn(
-                                    "shrink-0 h-10 w-10 rounded-full flex items-center justify-center border transition-all",
-                                    pred.did_happen === true ? "bg-green-100 border-green-300 text-green-700 shadow-sm" :
-                                        pred.did_happen === false ? "bg-rose-100 border-rose-300 text-rose-700 shadow-sm" :
-                                            "bg-stone-100 border-stone-200 text-stone-300",
-                                    !isLocked && "hover:bg-stone-200",
-                                    isLocked && "opacity-80 cursor-not-allowed"
+                                    "flex items-center justify-between gap-4 p-5 rounded-xl border transition-all hover:scale-[1.01]",
+                                    "glass-panel shadow-sm",
+                                    CATEGORY_BG_COLORS[pred.category]
                                 )}
                             >
-                                {pred.did_happen === true ? <Check className="w-5 h-5" /> :
-                                    pred.did_happen === false ? <X className="w-5 h-5" /> :
-                                        <Minus className="w-5 h-5" />}
-                            </button>
-                        </div>
-                    ))}
-                </div>
+                                <div className="flex-1 space-y-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={cn(
+                                            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                            CATEGORY_COLORS[pred.category]
+                                        )}>
+                                            {pred.user?.username.slice(0, 10)} &bull; {CATEGORY_LABELS[pred.category]}
+                                        </span>
+                                        {predStats[pred.id] && (
+                                            <div className="flex gap-2">
+                                                <span className="text-xs font-bold text-stone-600 bg-white/80 px-2 py-1 rounded-md border border-stone-200 shadow-sm flex items-center gap-1">
+                                                    👥 Avg: {predStats[pred.id].avg}%
+                                                </span>
+                                                <span className="text-xs text-stone-500 bg-white/50 px-2 py-1 rounded-md border border-stone-200 flex items-center gap-1">
+                                                    Range: {predStats[pred.id].min}% - {predStats[pred.id].max}%
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-stone-800 font-medium text-lg leading-snug">{pred.description}</p>
+                                </div>
+
+                                <button
+                                    onClick={() => toggleOutcome(pred.id, pred.did_happen)}
+                                    disabled={isLocked}
+                                    className={cn(
+                                        "shrink-0 h-10 w-10 rounded-full flex items-center justify-center border transition-all",
+                                        pred.did_happen === true ? "bg-green-100 border-green-300 text-green-700 shadow-sm" :
+                                            pred.did_happen === false ? "bg-rose-100 border-rose-300 text-rose-700 shadow-sm" :
+                                                "bg-stone-100 border-stone-200 text-stone-300",
+                                        !isLocked && "hover:bg-stone-200",
+                                        isLocked && "opacity-80 cursor-not-allowed"
+                                    )}
+                                >
+                                    {pred.did_happen === true ? <Check className="w-5 h-5" /> :
+                                        pred.did_happen === false ? <X className="w-5 h-5" /> :
+                                            <Minus className="w-5 h-5" />}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     )
