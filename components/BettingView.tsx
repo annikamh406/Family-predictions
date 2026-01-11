@@ -25,7 +25,7 @@ type Prediction = {
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 export function BettingView({ year }: { year: number }) {
-    const { user } = useUser()
+    const { user, viewingFamily, isViewingOtherFamily } = useUser()
     const [viewMode, setViewMode] = useState<'cards' | 'summary'>('cards')
     const [predictions, setPredictions] = useState<Prediction[]>([])
     const [bets, setBets] = useState<Record<string, number>>({})
@@ -42,13 +42,14 @@ export function BettingView({ year }: { year: number }) {
     }, [])
 
     const fetchData = async () => {
-        if (!user) return
+        if (!user || !viewingFamily) return
 
-        // Fetch predictions with usernames
+        // Fetch predictions with usernames for this family
         const { data: predsData } = await supabase
             .from('predictions')
             .select('*, user:users(username)')
             .eq('year', year)
+            .eq('family_id', viewingFamily.id)
 
         // Fetch existing bets
         const { data: betsData } = await supabase
@@ -112,33 +113,42 @@ export function BettingView({ year }: { year: number }) {
         <div className="space-y-8">
             <div className="flex justify-between items-end">
                 <div>
-                    <h2 className="text-2xl font-bold text-stone-800">Place Your Bets</h2>
-                    <p className="text-stone-500">Rate the likelihood (0-100%). Saving automatically.</p>
+                    <h2 className="text-2xl font-bold text-stone-800">
+                        {isViewingOtherFamily ? `${viewingFamily?.name}'s Bets` : "Place Your Bets"}
+                    </h2>
+                    <p className="text-stone-500">
+                        {isViewingOtherFamily
+                            ? "Viewing another family's bets (read-only)."
+                            : "Rate the likelihood (0-100%). Saving automatically."
+                        }
+                    </p>
                 </div>
-                <div className="flex gap-2">
-                    <button
-                        onClick={() => setViewMode('cards')}
-                        className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                            viewMode === 'cards' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
-                        )}
-                    >
-                        <LayoutGrid className="w-4 h-4" /> Cards
-                    </button>
-                    <button
-                        onClick={() => setViewMode('summary')}
-                        className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                            viewMode === 'summary' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
-                        )}
-                    >
-                        <Table2 className="w-4 h-4" /> Summary
-                    </button>
-                </div>
+                {!isViewingOtherFamily && (
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setViewMode('cards')}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                                viewMode === 'cards' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
+                            )}
+                        >
+                            <LayoutGrid className="w-4 h-4" /> Cards
+                        </button>
+                        <button
+                            onClick={() => setViewMode('summary')}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                                viewMode === 'summary' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
+                            )}
+                        >
+                            <Table2 className="w-4 h-4" /> Summary
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {viewMode === 'summary' ? (
-                <BettingSummary year={year} />
+            {viewMode === 'summary' || isViewingOtherFamily ? (
+                <BettingSummary year={year} familyId={viewingFamily?.id} />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {predictions.map((pred) => (

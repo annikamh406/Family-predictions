@@ -19,17 +19,23 @@ type PredictionRow = {
     description: string
 }
 
-export function ForecastingSummary({ year }: { year: number }) {
+export function ForecastingSummary({ year, familyId }: { year: number; familyId?: string }) {
     const [data, setData] = useState<Record<string, Record<string, string>>>({})
     const [loading, setLoading] = useState(true)
     const [users, setUsers] = useState<string[]>([])
 
     useEffect(() => {
         async function load() {
-            const { data: preds } = await supabase
+            let query = supabase
                 .from('predictions')
                 .select('category, description, user:users(username)')
                 .eq('year', year)
+
+            if (familyId) {
+                query = query.eq('family_id', familyId)
+            }
+
+            const { data: preds } = await query
 
             if (preds) {
                 const rows: Record<string, Record<string, string>> = {}

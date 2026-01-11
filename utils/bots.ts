@@ -8,35 +8,38 @@ export const BOT_NAMES = {
     CONSENSUS: "📊 The Consensus"
 }
 
-export async function generateBotBets(year: number) {
-    console.log("🤖 Generating Bot Bets for year", year)
+export async function generateBotBets(year: number, familyId: string) {
+    console.log("🤖 Generating Bot Bets for year", year, "and family", familyId)
 
-    // 1. Ensure Bot Users Exist
-    const bots = await ensureBotUsers()
+    // 1. Ensure Bot Users Exist for this family
+    const bots = await ensureBotUsers(familyId)
 
-    // 2. Fetch Predictions for the year
+    // 2. Fetch Predictions for the year AND family
     const { data: predictions } = await supabase
         .from('predictions')
         .select('id')
         .eq('year', year)
+        .eq('family_id', familyId)
 
     if (!predictions || predictions.length === 0) return
 
-    // 3. Fetch Existing Human Bets (for Consensus stats)
+    // 3. Fetch Existing Human Bets for these predictions (for Consensus stats)
+    const predictionIds = predictions.map(p => p.id)
     const { data: humanBets } = await supabase
         .from('bets')
-        .select('probability, prediction_id')
-    // We filter out bots roughly by checking if user_id is NOT in our bot list
-    // but easier just to fetch all and filter in JS since we just have the IDs.
+        .select('probability, prediction_id, user_id')
+        .in('prediction_id', predictionIds)
 
-    // Calculate stats per prediction
+    // Get bot user IDs to filter them out
+    const botUserIds = Object.values(bots)
+
+    // Calculate stats per prediction (excluding bots)
     const predictionStats: Record<string, { sum: number, count: number, values: number[] }> = {}
 
     humanBets?.forEach(bet => {
-        // Exclude bots if they already bet (though we are about to overwrite them)
-        // ideally we'd filter by bot IDs but let's just assume we want "all stats so far"
-        // actually for "Human Consensus" we should filter out previous bot bets if any.
-        // For simplicity, let's just use all bets found.
+        // Exclude bots from consensus calculation
+        if (botUserIds.includes(bet.user_id)) return
+
         if (!predictionStats[bet.prediction_id]) {
             predictionStats[bet.prediction_id] = { sum: 0, count: 0, values: [] }
         }
@@ -49,10 +52,6 @@ export async function generateBotBets(year: number) {
     const betsToInsert: any[] = []
 
     for (const pred of predictions) {
-        // optimists & pessimists always same
-        // Wildcard: Mean 50, SD 25
-        // Consensus: Mean GroupMean, SD GroupSD
-
         // -- The Optimist --
         betsToInsert.push({
             user_id: bots[BOT_NAMES.OPTIMIST],
@@ -75,7 +74,7 @@ export async function generateBotBets(year: number) {
             probability: wcVal
         })
 
-        // -- The Consensus --
+        // -- The Consensus (exact average of human bets) --
         const stats = predictionStats[pred.id]
         let conVal = 50
         if (stats && stats.count > 0) {
@@ -91,33 +90,35 @@ export async function generateBotBets(year: number) {
     }
 
     // 5. Bulk Upsert
-    // We iterate one by one or create specific constraint upserts?
-    // bets table has unique(user_id, prediction_id). Upsert works fine.
-
     if (betsToInsert.length > 0) {
         const { error } = await supabase
             .from('bets')
             .upsert(betsToInsert, { onConflict: 'user_id,prediction_id' })
 
         if (error) console.error("Error inserting bot bets:", error)
-        else console.log(`✅ Inserted ${betsToInsert.length} bot bets`)
+        else console.log(`✅ Inserted ${betsToInsert.length} bot bets for family`)
     }
 }
 
-async function ensureBotUsers() {
+async function ensureBotUsers(familyId: string) {
     const botMap: Record<string, string> = {}
 
     for (const name of Object.values(BOT_NAMES)) {
-        // Check existence
-        const { data } = await supabase.from('users').select('id').eq('username', name).single()
+        // Check if bot exists for this family
+        const { data } = await supabase
+            .from('users')
+            .select('id')
+            .eq('username', name)
+            .eq('family_id', familyId)
+            .single()
 
         if (data) {
             botMap[name] = data.id
         } else {
-            // Create
+            // Create bot for this family
             const { data: newUser, error } = await supabase
                 .from('users')
-                .insert([{ username: name, pin: '0000' }]) // Basic pin for bots
+                .insert([{ username: name, pin: '0000', family_id: familyId }])
                 .select()
                 .single()
 
@@ -129,4 +130,15 @@ async function ensureBotUsers() {
         }
     }
     return botMap
+}
+
+// Helper to get bot names for a specific family  
+export async function getBotUserIds(familyId: string): Promise<string[]> {
+    const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('family_id', familyId)
+        .in('username', Object.values(BOT_NAMES))
+
+    return data?.map(u => u.id) || []
 }

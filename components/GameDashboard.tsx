@@ -2,7 +2,7 @@
 
 import { useUser } from "@/contexts/UserContext"
 import { Button } from "./ui/Button"
-import { LogOut, Loader2 } from "lucide-react"
+import { LogOut, Loader2, Eye } from "lucide-react"
 import { useEffect, useState } from "react"
 import { supabase } from "@/utils/supabase"
 import { ForecastingView } from "./ForecastingView"
@@ -11,19 +11,21 @@ import { ResultsView } from "./ResultsView"
 import { AdminControls } from "./AdminControls"
 
 type GamePhase = 'forecasting' | 'betting' | 'results' | 'complete'
-type GameYearRow = { year: number; status: GamePhase }
+type GameYearRow = { year: number; status: GamePhase; family_id: string }
 
 export function GameDashboard({ year, onBack }: { year: number, onBack: () => void }) {
-    const { user, logout } = useUser()
+    const { user, family, logout, viewingFamily, isViewingOtherFamily } = useUser()
     const [phase, setPhase] = useState<GamePhase | null>(null)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        fetchGameState()
+        if (viewingFamily) {
+            fetchGameState()
+        }
 
-        // Realtime subscription
+        // Realtime subscription for THIS family's game state
         const channel = supabase
-            .channel(`game_years_changes_${year}`)
+            .channel(`game_years_changes_${year}_${viewingFamily?.id}`)
             .on(
                 'postgres_changes',
                 {
@@ -33,9 +35,10 @@ export function GameDashboard({ year, onBack }: { year: number, onBack: () => vo
                     filter: `year=eq.${year}`,
                 },
                 (payload) => {
-                    const newStatus = (payload.new as GameYearRow).status
-                    if (newStatus) {
-                        setPhase(newStatus)
+                    const newRow = payload.new as GameYearRow
+                    // Only update if it's for the family we're viewing
+                    if (newRow.family_id === viewingFamily?.id && newRow.status) {
+                        setPhase(newRow.status)
                     }
                 }
             )
@@ -44,13 +47,16 @@ export function GameDashboard({ year, onBack }: { year: number, onBack: () => vo
         return () => {
             supabase.removeChannel(channel)
         }
-    }, [year])
+    }, [year, viewingFamily])
 
     async function fetchGameState() {
+        if (!viewingFamily) return
+
         const { data } = await supabase
             .from('game_years')
             .select('status')
             .eq('year', year)
+            .eq('family_id', viewingFamily.id)
             .single()
 
         if (data) {
@@ -67,7 +73,10 @@ export function GameDashboard({ year, onBack }: { year: number, onBack: () => vo
                         ← Back
                     </Button>
                     <div>
-                        <h2 className="text-lg font-bold text-stone-800">Predictions {year}</h2>
+                        <h2 className="text-lg font-bold text-stone-800 flex items-center gap-2">
+                            {viewingFamily?.name} {year}
+                            {isViewingOtherFamily && <Eye className="w-4 h-4 text-amber-500" />}
+                        </h2>
                         <span className="text-xs text-stone-400 font-medium">{user?.username}</span>
                     </div>
                 </div>
@@ -94,11 +103,14 @@ export function GameDashboard({ year, onBack }: { year: number, onBack: () => vo
                 )}
             </main>
 
-            {phase && (
+            {/* Only show admin controls for own family */}
+            {phase && !isViewingOtherFamily && family && (
                 <AdminControls
                     year={year}
                     currentPhase={phase}
                     onPhaseChange={setPhase}
+                    familyId={family.id}
+                    familyPin={family.pin}
                 />
             )}
         </div>

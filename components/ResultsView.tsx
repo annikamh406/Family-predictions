@@ -44,7 +44,7 @@ type PredictionStats = {
 }
 
 export function ResultsView({ year, isLocked = false }: { year: number, isLocked?: boolean }) {
-    const { user } = useUser()
+    const { user, viewingFamily, isViewingOtherFamily } = useUser()
     const [predictions, setPredictions] = useState<Prediction[]>([])
     const [bets, setBets] = useState<Bet[]>([])
     const [scores, setScores] = useState<Score[]>([])
@@ -58,10 +58,13 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
     }, [])
 
     const fetchData = async () => {
+        if (!viewingFamily) return
+
         const { data: preds } = await supabase
             .from('predictions')
             .select('*, user:users(username)')
             .eq('year', year)
+            .eq('family_id', viewingFamily.id)
 
         const { data: allBets } = await supabase
             .from('bets')
@@ -136,7 +139,7 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
     }, [predictions, bets])
 
     const toggleOutcome = async (predictionId: string, currentStatus: boolean | null) => {
-        if (isLocked) return // Verify lock just in case
+        if (isLocked || isViewingOtherFamily) return // Verify lock and family
 
         let newStatus: boolean | null = null
         if (currentStatus === null) newStatus = true
@@ -315,7 +318,7 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                 </div>
 
                 {viewMode === 'summary' ? (
-                    <ResultsSummary year={year} />
+                    <ResultsSummary year={year} familyId={viewingFamily?.id} />
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
                         {predictions.map((pred) => (

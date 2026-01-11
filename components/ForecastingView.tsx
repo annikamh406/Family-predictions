@@ -24,7 +24,7 @@ type PredictionRecord = {
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 export function ForecastingView({ year }: { year: number }) {
-    const { user } = useUser()
+    const { user, family, viewingFamily, isViewingOtherFamily } = useUser()
     const [viewMode, setViewMode] = useState<'cards' | 'summary'>('cards')
     const [predictions, setPredictions] = useState<Record<string, string>>({})
     const [originalPredictions, setOriginalPredictions] = useState<Record<string, PredictionRecord>>({})
@@ -102,6 +102,7 @@ export function ForecastingView({ year }: { year: number }) {
                     .insert({
                         year,
                         user_id: user.id,
+                        family_id: family?.id,
                         category: cat,
                         description: newDesc
                     })
@@ -147,35 +148,44 @@ export function ForecastingView({ year }: { year: number }) {
         <div className="space-y-8">
             <div className="text-center space-y-2">
                 <div className="flex justify-between items-center max-w-2xl mx-auto">
-                    <h1 className="text-3xl font-bold text-stone-800">Your {year} Forecast</h1>
+                    <h1 className="text-3xl font-bold text-stone-800">
+                        {isViewingOtherFamily ? `${viewingFamily?.name}'s ${year} Forecast` : `Your ${year} Forecast`}
+                    </h1>
                 </div>
-                <div className="flex justify-center gap-2 pt-2">
-                    <button
-                        onClick={() => setViewMode('cards')}
-                        className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                            viewMode === 'cards' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
-                        )}
-                    >
-                        <LayoutGrid className="w-4 h-4" /> Cards
-                    </button>
-                    <button
-                        onClick={() => setViewMode('summary')}
-                        className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                            viewMode === 'summary' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
-                        )}
-                    >
-                        <Table2 className="w-4 h-4" /> Summary
-                    </button>
-                </div>
+                {!isViewingOtherFamily && (
+                    <div className="flex justify-center gap-2 pt-2">
+                        <button
+                            onClick={() => setViewMode('cards')}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                                viewMode === 'cards' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
+                            )}
+                        >
+                            <LayoutGrid className="w-4 h-4" /> Cards
+                        </button>
+                        <button
+                            onClick={() => setViewMode('summary')}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                                viewMode === 'summary' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
+                            )}
+                        >
+                            <Table2 className="w-4 h-4" /> Summary
+                        </button>
+                    </div>
+                )}
                 <p className="text-stone-500 max-w-lg mx-auto text-sm pt-2">
-                    {viewMode === 'cards' ? "Make 4 bold predictions. Changes save automatically." : "View everyone's predictions."}
+                    {isViewingOtherFamily
+                        ? "Viewing another family's predictions (read-only)."
+                        : viewMode === 'cards'
+                            ? "Make 4 bold predictions. Changes save automatically."
+                            : "View everyone's predictions."
+                    }
                 </p>
             </div>
 
-            {viewMode === 'summary' ? (
-                <ForecastingSummary year={year} />
+            {viewMode === 'summary' || isViewingOtherFamily ? (
+                <ForecastingSummary year={year} familyId={viewingFamily?.id} />
             ) : (
                 <div className="grid grid-cols-1 gap-6">
                     {CATEGORIES.map((cat) => (

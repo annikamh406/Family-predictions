@@ -25,7 +25,7 @@ type Bet = {
     user: { username: string }
 }
 
-export function ResultsSummary({ year }: { year: number }) {
+export function ResultsSummary({ year, familyId }: { year: number; familyId?: string }) {
     const [predictions, setPredictions] = useState<Prediction[]>([])
     const [bets, setBets] = useState<Record<string, Record<string, number>>>({}) // [predId][username] -> prob
     const [users, setUsers] = useState<string[]>([])
@@ -34,10 +34,16 @@ export function ResultsSummary({ year }: { year: number }) {
     useEffect(() => {
         async function load() {
             // Get Predictions
-            const { data: predsData } = await supabase
+            let predQuery = supabase
                 .from('predictions')
                 .select('*, user:users(username)')
                 .eq('year', year)
+
+            if (familyId) {
+                predQuery = predQuery.eq('family_id', familyId)
+            }
+
+            const { data: predsData } = await predQuery
 
             // Get Bets
             const { data: betsData } = await supabase

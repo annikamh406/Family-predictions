@@ -8,10 +8,12 @@ import { generateBotBets } from "@/utils/bots"
 
 type GamePhase = 'forecasting' | 'betting' | 'results' | 'complete'
 
-export function AdminControls({ year, currentPhase, onPhaseChange }: {
+export function AdminControls({ year, currentPhase, onPhaseChange, familyId, familyPin }: {
     year: number
     currentPhase: GamePhase
     onPhaseChange: (p: GamePhase) => void
+    familyId: string
+    familyPin: string
 }) {
     const [isOpen, setIsOpen] = useState(false)
     const [loading, setLoading] = useState(false)
@@ -19,8 +21,8 @@ export function AdminControls({ year, currentPhase, onPhaseChange }: {
     const handlePhaseChange = async (newPhase: GamePhase) => {
         if (newPhase === currentPhase) return
 
-        const pin = prompt(`Enter Admin PIN to switch to ${newPhase}:`)
-        if (pin !== "2647") {
+        const pin = prompt(`Enter Family PIN to switch to ${newPhase}:`)
+        if (pin !== familyPin) {
             alert("Incorrect PIN")
             return
         }
@@ -30,7 +32,7 @@ export function AdminControls({ year, currentPhase, onPhaseChange }: {
         // Trigger Bots if switching TO results
         if (newPhase === 'results') {
             try {
-                await generateBotBets(year)
+                await generateBotBets(year, familyId)
             } catch (e) {
                 console.error("Bot generation failed", e)
                 alert("Warning: Bot generation failed, but proceeding with phase change.")
@@ -41,12 +43,12 @@ export function AdminControls({ year, currentPhase, onPhaseChange }: {
             .from('game_years')
             .update({ status: newPhase })
             .eq('year', year)
+            .eq('family_id', familyId)
 
         if (error) {
             console.error(error)
             alert('Failed to update phase')
         } else {
-            // Optimistic update
             onPhaseChange(newPhase)
             setIsOpen(false)
         }
@@ -75,8 +77,8 @@ export function AdminControls({ year, currentPhase, onPhaseChange }: {
                 </button>
 
                 <div>
-                    <h3 className="text-xl font-bold text-stone-800">Admin Controls ({year})</h3>
-                    <p className="text-stone-500 text-sm">Manage game state and phases.</p>
+                    <h3 className="text-xl font-bold text-stone-800">Family Admin ({year})</h3>
+                    <p className="text-stone-500 text-sm">Manage game phases for your family.</p>
                 </div>
 
                 <div className="space-y-3">
@@ -118,7 +120,7 @@ export function AdminControls({ year, currentPhase, onPhaseChange }: {
 
                 <div className="pt-4 border-t border-stone-100">
                     <p className="text-xs text-stone-400 text-center">
-                        Changes affect all users immediately. A restart may be required for some clients to sync.
+                        Changes affect all family members immediately.
                     </p>
                 </div>
             </div>
