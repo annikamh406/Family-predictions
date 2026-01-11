@@ -10,7 +10,7 @@ import { cn } from "@/utils/cn"
 type GameYearRow = { year: number; status: string; family_id: string }
 
 export function YearSelection({ onSelectYear }: { onSelectYear: (year: number) => void }) {
-    const { viewingFamily, family, isViewingOtherFamily } = useUser()
+    const { viewingFamily, family, isViewingOtherFamily, adminPin } = useUser()
     const [years, setYears] = useState<GameYearRow[]>([])
     const [loading, setLoading] = useState(true)
     const [creating, setCreating] = useState(false)
@@ -94,7 +94,7 @@ export function YearSelection({ onSelectYear }: { onSelectYear: (year: number) =
 
         // Overall admin PIN for destructive actions
         const pin = prompt("Enter Overall Admin PIN to confirm deletion:")
-        if (pin !== "2647") {
+        if (pin !== adminPin) {
             alert("Incorrect PIN")
             return
         }

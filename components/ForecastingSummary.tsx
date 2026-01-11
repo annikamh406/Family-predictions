@@ -54,7 +54,7 @@ export function ForecastingSummary({ year, familyId }: { year: number; familyId?
             setLoading(false)
         }
         load()
-    }, [year])
+    }, [year, familyId])
 
     if (loading) return <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-stone-300" /></div>
 

@@ -7,6 +7,7 @@ import { Button } from "./ui/Button"
 import { Loader2, Trophy, Check, X, Minus, Medal, Info, Bot, Lock, LayoutGrid, Table2 } from "lucide-react"
 import { cn } from "@/utils/cn"
 import { ResultsSummary } from "./ResultsSummary"
+import { ResultsStats } from "./ResultsStats"
 import {
     CATEGORY_LABELS,
     CATEGORY_COLORS,
@@ -51,11 +52,11 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
     const [predStats, setPredStats] = useState<Record<string, PredictionStats>>({})
     const [isLoading, setIsLoading] = useState(true)
     const [showBots, setShowBots] = useState(false)
-    const [viewMode, setViewMode] = useState<'cards' | 'summary'>('cards')
+    const [viewMode, setViewMode] = useState<'cards' | 'summary' | 'stats'>('cards')
 
     useEffect(() => {
         fetchData()
-    }, [])
+    }, [year, viewingFamily?.id])
 
     const fetchData = async () => {
         if (!viewingFamily) return
@@ -66,9 +67,16 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
             .eq('year', year)
             .eq('family_id', viewingFamily.id)
 
-        const { data: allBets } = await supabase
-            .from('bets')
-            .select('*, user:users(username)')
+        const predictionIds = preds?.map(pred => pred.id) || []
+        let allBets: Bet[] | null = []
+
+        if (predictionIds.length > 0) {
+            const { data } = await supabase
+                .from('bets')
+                .select('*, user:users(username)')
+                .in('prediction_id', predictionIds)
+            allBets = data as Bet[] | null
+        }
 
         if (preds) {
             const sorted = sortPredictionsByCategory(preds as Prediction[])
@@ -314,11 +322,22 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                         >
                             <Table2 className="w-4 h-4" /> Summary
                         </button>
+                        <button
+                            onClick={() => setViewMode('stats')}
+                            className={cn(
+                                "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                                viewMode === 'stats' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
+                            )}
+                        >
+                            📈 Stats
+                        </button>
                     </div>
                 </div>
 
                 {viewMode === 'summary' ? (
                     <ResultsSummary year={year} familyId={viewingFamily?.id} />
+                ) : viewMode === 'stats' ? (
+                    <ResultsStats year={year} familyId={viewingFamily?.id} />
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
                         {predictions.map((pred) => (

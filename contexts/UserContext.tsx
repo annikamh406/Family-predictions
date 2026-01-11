@@ -23,6 +23,10 @@ interface UserContextType {
     login: (username: string, familyId: string) => Promise<{ success: boolean; error?: string }>
     logout: () => void
     switchFamily: (familyId: string) => void
+    refreshFamilies: () => Promise<void>
+    adminPin: string
+    refreshAdminPin: () => Promise<void>
+    updateAdminPin: (newPin: string) => Promise<{ success: boolean; error?: string }>
     isLoading: boolean
     isViewingOtherFamily: boolean
     viewingFamily: Family | null
@@ -36,6 +40,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const [families, setFamilies] = useState<Family[]>([])
     const [viewingFamily, setViewingFamily] = useState<Family | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [adminPin, setAdminPin] = useState("2647")
 
     // Computed: are we viewing a different family than our own?
     const isViewingOtherFamily = viewingFamily !== null && viewingFamily.id !== family?.id
@@ -43,6 +48,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         // Load families list
         loadFamilies()
+        refreshAdminPin()
 
         // Check localStorage on mount
         const storedUserId = localStorage.getItem('prediction_game_user_id')
@@ -63,6 +69,61 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
         if (data) {
             setFamilies(data)
+        }
+        return data || []
+    }
+
+    const refreshFamilies = async () => {
+        const data = await loadFamilies()
+        if (data.length === 0) {
+            setFamily(null)
+            setViewingFamily(null)
+            return
+        }
+
+        if (family && !data.find(f => f.id === family.id)) {
+            setFamily(null)
+        }
+
+        if (viewingFamily && !data.find(f => f.id === viewingFamily.id)) {
+            setViewingFamily(data[0])
+        }
+    }
+
+    const refreshAdminPin = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('app_settings')
+                .select('value')
+                .eq('key', 'admin_pin')
+                .single()
+
+            if (error && error.code !== 'PGRST116') {
+                return
+            }
+
+            if (data?.value) {
+                setAdminPin(data.value)
+            }
+        } catch (err) {
+            return
+        }
+    }
+
+    const updateAdminPin = async (newPin: string) => {
+        try {
+            const { error } = await supabase
+                .from('app_settings')
+                .upsert({ key: 'admin_pin', value: newPin }, { onConflict: 'key' })
+
+            if (error) {
+                return { success: false, error: error.message }
+            }
+
+            setAdminPin(newPin)
+            return { success: true }
+        } catch (err) {
+            return { success: false, error: "Network error" }
         }
     }
 
@@ -171,6 +232,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
             login,
             logout,
             switchFamily,
+            refreshFamilies,
+            adminPin,
+            refreshAdminPin,
+            updateAdminPin,
             isLoading,
             isViewingOtherFamily,
             viewingFamily

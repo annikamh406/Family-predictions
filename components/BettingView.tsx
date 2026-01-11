@@ -39,7 +39,7 @@ export function BettingView({ year }: { year: number }) {
         return () => {
             Object.values(timers.current).forEach(clearTimeout)
         }
-    }, [])
+    }, [year, viewingFamily?.id, user?.id])
 
     const fetchData = async () => {
         if (!user || !viewingFamily) return

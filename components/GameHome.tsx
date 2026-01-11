@@ -7,6 +7,7 @@ import { YearSelection } from "./YearSelection"
 import { Button } from "./ui/Button"
 import { LogOut, Users, Eye } from "lucide-react"
 import { cn } from "@/utils/cn"
+import { AdminPanel } from "./AdminPanel"
 
 export function GameHome() {
     const { user, family, families, logout, viewingFamily, switchFamily, isViewingOtherFamily } = useUser()
@@ -22,6 +23,7 @@ export function GameHome() {
                         <span className="text-stone-400 text-sm hidden md:inline">
                             {user?.username} ({family?.name})
                         </span>
+                        <AdminPanel />
                         <Button variant="ghost" size="sm" onClick={logout} className="p-2 text-stone-400 hover:text-red-500">
                             <LogOut className="h-4 w-4" />
                         </Button>

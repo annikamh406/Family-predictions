@@ -39,7 +39,7 @@ export function ForecastingView({ year }: { year: number }) {
         return () => {
             Object.values(timers.current).forEach(clearTimeout)
         }
-    }, [])
+    }, [year, user?.id])
 
     const fetchPredictions = async () => {
         if (!user) return

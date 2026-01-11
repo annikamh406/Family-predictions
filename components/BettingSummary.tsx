@@ -43,11 +43,16 @@ export function BettingSummary({ year, familyId }: { year: number; familyId?: st
             }
 
             const { data: predsData } = await predQuery
+            const predictionIds = predsData?.map(pred => pred.id) || []
+            let betsData: Bet[] | null = []
 
-            // Get Bets
-            const { data: betsData } = await supabase
-                .from('bets')
-                .select('*, user:users(username)')
+            if (predictionIds.length > 0) {
+                const { data } = await supabase
+                    .from('bets')
+                    .select('*, user:users(username)')
+                    .in('prediction_id', predictionIds)
+                betsData = data as Bet[] | null
+            }
 
             if (predsData && betsData) {
                 const sortedPreds = sortPredictionsByCategory(predsData as Prediction[])
@@ -71,7 +76,7 @@ export function BettingSummary({ year, familyId }: { year: number; familyId?: st
             setLoading(false)
         }
         load()
-    }, [year])
+    }, [year, familyId])
 
     if (loading) return <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-stone-300" /></div>
 
