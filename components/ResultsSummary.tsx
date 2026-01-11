@@ -130,29 +130,30 @@ export function ResultsSummary({ year }: { year: number }) {
 
                             {/* User Scores */}
                             {users.map(u => {
-                                const val = bets[pred.id]?.[u]
-                                const hasBet = val !== undefined
-                                const score = hasBet ? getScore(pred, val) : null
+                                const val = bets[pred.id]?.[u] ?? 50
+                                const isDefault = bets[pred.id]?.[u] === undefined
+                                const score = getScore(pred, val)
 
                                 return (
                                     <td key={u} className="px-2 py-3 text-center border-l border-dotted border-stone-100">
-                                        {hasBet ? (
-                                            <div className="flex flex-col items-center">
-                                                <span className="text-[10px] text-stone-400 mb-0.5">{val}%</span>
-                                                {score !== null ? (
-                                                    <span className={cn(
-                                                        "font-bold font-mono text-sm",
-                                                        score > 0 ? "text-green-600" : score < 0 ? "text-rose-600" : "text-stone-400"
-                                                    )}>
-                                                        {score > 0 ? "+" : ""}{score}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-stone-300 text-xs">-</span>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <span className="text-stone-200">-</span>
-                                        )}
+                                        <div className="flex flex-col items-center">
+                                            <span className={cn(
+                                                "text-sm font-semibold mb-1",
+                                                isDefault ? "text-stone-400" : "text-stone-600"
+                                            )}>
+                                                {val}%
+                                            </span>
+                                            {score !== null ? (
+                                                <span className={cn(
+                                                    "font-bold font-mono text-sm",
+                                                    score > 0 ? "text-green-600" : score < 0 ? "text-rose-600" : "text-stone-400"
+                                                )}>
+                                                    {score > 0 ? "+" : ""}{score}
+                                                </span>
+                                            ) : (
+                                                <span className="text-stone-300 text-xs">-</span>
+                                            )}
+                                        </div>
                                     </td>
                                 )
                             })}
@@ -162,6 +163,52 @@ export function ResultsSummary({ year }: { year: number }) {
                         <tr><td colSpan={users.length + 2} className="p-8 text-center text-stone-400">No data found</td></tr>
                     )}
                 </tbody>
+                {/* Footer with Totals */}
+                <tfoot className="bg-stone-50 border-t-2 border-stone-200">
+                    <tr>
+                        <td colSpan={2} className="px-4 py-4 text-right font-bold text-stone-600 uppercase text-xs tracking-wider sticky left-0 bg-stone-50 z-10 border-r border-stone-200">
+                            Total Points
+                        </td>
+                        {users.map(u => {
+                            const totalScore = predictions.reduce((acc, pred) => {
+                                const val = bets[pred.id]?.[u] ?? 50
+                                const score = getScore(pred, val)
+                                return acc + (score || 0)
+                            }, 0)
+
+                            return (
+                                <td key={u} className="px-2 py-4 text-center border-l border-stone-200">
+                                    <span className={cn(
+                                        "font-bold font-mono text-base",
+                                        totalScore > 0 ? "text-green-700" : totalScore < 0 ? "text-rose-700" : "text-stone-500"
+                                    )}>
+                                        {totalScore > 0 ? "+" : ""}{totalScore}
+                                    </span>
+                                </td>
+                            )
+                        })}
+                    </tr>
+                    <tr>
+                        <td colSpan={2} className="px-4 py-3 text-right font-bold text-stone-500 uppercase text-[10px] tracking-wider sticky left-0 bg-stone-50 z-10 border-r border-stone-200">
+                            Avg Bullishness
+                        </td>
+                        {users.map(u => {
+                            const totalProb = predictions.reduce((acc, pred) => {
+                                const val = bets[pred.id]?.[u] ?? 50
+                                return acc + val
+                            }, 0)
+                            const avg = Math.round(totalProb / (predictions.length || 1))
+
+                            return (
+                                <td key={u} className="px-2 py-3 text-center border-l border-stone-200">
+                                    <span className="font-mono text-xs text-stone-600 bg-stone-200 px-1.5 py-0.5 rounded">
+                                        {avg}%
+                                    </span>
+                                </td>
+                            )
+                        })}
+                    </tr>
+                </tfoot>
             </table>
         </div>
     )

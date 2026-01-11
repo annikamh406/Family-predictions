@@ -103,22 +103,19 @@ export function BettingSummary({ year }: { year: number }) {
                                 </div>
                             </td>
                             {users.map(u => {
-                                const val = bets[pred.id]?.[u]
-                                const hasBet = val !== undefined
+                                const val = bets[pred.id]?.[u] ?? 50
+                                const isDefault = bets[pred.id]?.[u] === undefined
                                 return (
                                     <td key={u} className="px-2 py-3 text-center border-l border-dotted border-stone-100">
-                                        {hasBet ? (
-                                            <span className={cn(
-                                                "inline-block px-1.5 py-0.5 rounded font-mono font-bold text-xs",
-                                                val >= 80 ? "bg-green-100 text-green-700" :
-                                                    val <= 20 ? "bg-stone-100 text-stone-400" :
-                                                        "bg-yellow-50 text-yellow-700"
-                                            )}>
-                                                {val}%
-                                            </span>
-                                        ) : (
-                                            <span className="text-stone-200">-</span>
-                                        )}
+                                        <span className={cn(
+                                            "inline-block px-1.5 py-0.5 rounded font-mono font-bold text-xs",
+                                            val >= 80 ? "bg-green-100 text-green-700" :
+                                                val <= 20 ? "bg-stone-100 text-stone-400" :
+                                                    "bg-yellow-50 text-yellow-700",
+                                            isDefault && "opacity-50 grayscale"
+                                        )}>
+                                            {val}%
+                                        </span>
                                     </td>
                                 )
                             })}

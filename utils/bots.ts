@@ -80,12 +80,7 @@ export async function generateBotBets(year: number) {
         let conVal = 50
         if (stats && stats.count > 0) {
             const mean = stats.sum / stats.count
-
-            // Calculate SD
-            const variance = stats.values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / stats.count
-            const sd = Math.sqrt(variance) || 10 // default spread if 0 variance
-
-            conVal = Math.round(clamp(gaussianRandom(mean, sd), 0, 100))
+            conVal = Math.round(clamp(mean, 0, 100))
         }
 
         betsToInsert.push({
