@@ -6,6 +6,7 @@ import { Button } from "./ui/Button"
 import { Input } from "./ui/Input"
 import { Sparkles, ChevronDown } from "lucide-react"
 import { cn } from "@/utils/cn"
+import { supabase } from "@/utils/supabase"
 
 export function LoginForm() {
     const [username, setUsername] = useState("")
@@ -14,6 +15,9 @@ export function LoginForm() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
     const nameInputRef = useRef<HTMLInputElement | null>(null)
+    const [familyUsers, setFamilyUsers] = useState<string[]>([])
+    const [suggestion, setSuggestion] = useState<{ input: string; match: string } | null>(null)
+    const [ignoredSuggestionFor, setIgnoredSuggestionFor] = useState<string>("")
 
     // Auto-select first family when families load
     useEffect(() => {
@@ -21,6 +25,59 @@ export function LoginForm() {
             setSelectedFamilyId("guest")
         }
     }, [families, selectedFamilyId])
+
+    useEffect(() => {
+        if (!selectedFamilyId || selectedFamilyId === "guest") {
+            setFamilyUsers([])
+            return
+        }
+
+        const loadUsers = async () => {
+            const { data } = await supabase
+                .from('users')
+                .select('username')
+                .eq('family_id', selectedFamilyId)
+
+            if (data) {
+                setFamilyUsers(data.map(u => u.username))
+            } else {
+                setFamilyUsers([])
+            }
+        }
+
+        loadUsers()
+    }, [selectedFamilyId])
+
+    const normalizeName = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase()
+
+    const findClosestName = (value: string) => {
+        const normalized = normalizeName(value)
+        if (!normalized) return null
+
+        let best: { name: string; dist: number } | null = null
+        familyUsers.forEach(name => {
+            const dist = levenshtein(normalized, normalizeName(name))
+            if (!best || dist < best.dist) {
+                best = { name, dist }
+            }
+        })
+
+        if (!best) return null
+        const threshold = normalized.length > 8 ? 3 : 2
+        return best.dist > 0 && best.dist <= threshold ? best.name : null
+    }
+
+    const performLogin = async (name: string) => {
+        setIsLoading(true)
+        setError("")
+
+        const result = await login(name, selectedFamilyId)
+
+        if (!result.success) {
+            setError(result.error || "Login failed")
+        }
+        setIsLoading(false)
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -33,15 +90,27 @@ export function LoginForm() {
             return
         }
 
-        setIsLoading(true)
-        setError("")
-
-        const result = await login(username, selectedFamilyId)
-
-        if (!result.success) {
-            setError(result.error || "Login failed")
+        if (selectedFamilyId === "guest") {
+            await performLogin(username)
+            return
         }
-        setIsLoading(false)
+
+        const normalized = normalizeName(username)
+        const exactMatch = familyUsers.find(name => normalizeName(name) === normalized)
+        if (exactMatch) {
+            await performLogin(exactMatch)
+            return
+        }
+
+        if (ignoredSuggestionFor !== normalized) {
+            const match = findClosestName(username)
+            if (match) {
+                setSuggestion({ input: username, match })
+                return
+            }
+        }
+
+        await performLogin(username)
     }
 
     const selectedFamily = families.find(f => f.id === selectedFamilyId)
@@ -113,6 +182,36 @@ export function LoginForm() {
                     {error && (
                         <p className="text-red-500 text-sm animate-in fade-in">{error}</p>
                     )}
+                    {suggestion && (
+                        <div className="text-sm text-stone-600 bg-stone-50 border border-stone-200 rounded-xl p-3 space-y-2">
+                            <div>Did you mean <strong>{suggestion.match}</strong>?</div>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={async () => {
+                                        setSuggestion(null)
+                                        setUsername(suggestion.match)
+                                        await performLogin(suggestion.match)
+                                    }}
+                                >
+                                    Use {suggestion.match}
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={async () => {
+                                        setIgnoredSuggestionFor(normalizeName(suggestion.input))
+                                        setSuggestion(null)
+                                        await performLogin(suggestion.input)
+                                    }}
+                                >
+                                    Continue as {suggestion.input}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
 
                     <Button type="submit" size="lg" isLoading={isLoading} className="w-full">
                         Let's Play
@@ -131,4 +230,30 @@ export function LoginForm() {
             </div>
         </div>
     )
+}
+
+function levenshtein(a: string, b: string) {
+    if (a === b) return 0
+    if (a.length === 0) return b.length
+    if (b.length === 0) return a.length
+
+    const rows = a.length + 1
+    const cols = b.length + 1
+    const matrix = Array.from({ length: rows }, () => new Array<number>(cols).fill(0))
+
+    for (let i = 0; i < rows; i += 1) matrix[i][0] = i
+    for (let j = 0; j < cols; j += 1) matrix[0][j] = j
+
+    for (let i = 1; i < rows; i += 1) {
+        for (let j = 1; j < cols; j += 1) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1
+            matrix[i][j] = Math.min(
+                matrix[i - 1][j] + 1,
+                matrix[i][j - 1] + 1,
+                matrix[i - 1][j - 1] + cost
+            )
+        }
+    }
+
+    return matrix[rows - 1][cols - 1]
 }

@@ -122,6 +122,10 @@ export function AdminPanel() {
     }
 
     const handleClose = () => {
+        if (!isVerified) {
+            resetPanelState()
+            return
+        }
         if (hasUnsavedChanges) {
             const ok = confirm("You have unsaved changes. Discard them and close?")
             if (!ok) return

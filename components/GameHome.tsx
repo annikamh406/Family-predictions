@@ -27,7 +27,7 @@ export function GameHome() {
                             viewingFamily={viewingFamily}
                             onSwitch={switchFamily}
                         />
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 mr-12">
                             <span className="text-stone-400 text-sm hidden md:inline">
                                 {user?.username} {family?.name ? `(${family.name})` : ""}
                             </span>
