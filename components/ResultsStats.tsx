@@ -289,7 +289,7 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
                 </div>
                 <button
                     onClick={() => setIsZoomed(prev => !prev)}
-                    className="text-xs text-stone-500 hover:text-stone-700"
+                    className="text-xs text-stone-600 bg-stone-100 border border-stone-200 rounded-full px-3 py-1 hover:bg-stone-200"
                 >
                     {isZoomed ? "Reset zoom" : "Zoom to humans"}
                 </button>
@@ -533,9 +533,6 @@ function CategoryOutcomeChart({
                 <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e7e5e4" />
                 <text x={8} y={padding + 4} className="fill-stone-500 text-[14px]">100%</text>
                 <text x={8} y={height - padding} className="fill-stone-500 text-[14px]">0%</text>
-                <text x={width / 2} y={height - 6} className="fill-stone-600 text-[14px]" textAnchor="middle">
-                    Likelihood Category
-                </text>
                 <text
                     x={10}
                     y={height / 2}
