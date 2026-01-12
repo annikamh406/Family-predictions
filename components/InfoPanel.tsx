@@ -31,7 +31,7 @@ export function InfoPanel() {
                             <h3 className="text-2xl font-bold text-stone-800">How This Game Works</h3>
                         </div>
 
-                        <div className="space-y-4 text-sm text-stone-700">
+                        <div className="space-y-4 text-[15px] text-stone-700">
                             <div className="space-y-2">
                                 <p>
                                     This is a friendly family prediction game. Each year, everyone makes four predictions:
