@@ -27,6 +27,7 @@ interface UserContextType {
     adminPin: string
     refreshAdminPin: () => Promise<void>
     updateAdminPin: (newPin: string) => Promise<{ success: boolean; error?: string }>
+    isGuest: boolean
     isLoading: boolean
     isViewingOtherFamily: boolean
     viewingFamily: Family | null
@@ -41,6 +42,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const [viewingFamily, setViewingFamily] = useState<Family | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [adminPin, setAdminPin] = useState("2647")
+    const [isGuest, setIsGuest] = useState(false)
 
     // Computed: are we viewing a different family than our own?
     const isViewingOtherFamily = viewingFamily !== null && viewingFamily.id !== family?.id
@@ -55,11 +57,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const storedFamilyId = localStorage.getItem('prediction_game_family_id')
 
         if (storedUserId && storedFamilyId) {
-            fetchUserAndFamily(storedUserId, storedFamilyId).finally(() => setIsLoading(false))
+            if (storedUserId === 'guest') {
+                setUser({ id: 'guest', username: 'Guest', pin: null, family_id: null })
+                setFamily(null)
+                const initialFamily = families.find(f => f.id === storedFamilyId) || families[0] || null
+                setViewingFamily(initialFamily)
+                setIsGuest(true)
+                setIsLoading(false)
+            } else {
+                fetchUserAndFamily(storedUserId, storedFamilyId).finally(() => setIsLoading(false))
+            }
         } else {
             setIsLoading(false)
         }
     }, [])
+
+    useEffect(() => {
+        if (isGuest && !viewingFamily && families.length > 0) {
+            setViewingFamily(families[0])
+            localStorage.setItem('prediction_game_family_id', families[0].id)
+        }
+    }, [isGuest, viewingFamily, families])
 
     const loadFamilies = async () => {
         const { data } = await supabase
@@ -86,6 +104,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
 
         if (viewingFamily && !data.find(f => f.id === viewingFamily.id)) {
+            setViewingFamily(data[0])
+        }
+
+        if (!viewingFamily && data[0]) {
             setViewingFamily(data[0])
         }
     }
@@ -151,6 +173,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     const login = async (username: string, familyId: string) => {
         try {
+            if (familyId === 'guest') {
+                const defaultFamily = families[0] || null
+                setUser({ id: 'guest', username: 'Guest', pin: null, family_id: null })
+                setFamily(null)
+                setViewingFamily(defaultFamily)
+                setIsGuest(true)
+                localStorage.setItem('prediction_game_user_id', 'guest')
+                if (defaultFamily) {
+                    localStorage.setItem('prediction_game_family_id', defaultFamily.id)
+                } else {
+                    localStorage.removeItem('prediction_game_family_id')
+                }
+                return { success: true }
+            }
+
             // Find the family
             const { data: familyData, error: familyError } = await supabase
                 .from('families')
@@ -175,13 +212,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
             }
 
             if (existingUser) {
-                setUser(existingUser)
-                setFamily(familyData)
-                setViewingFamily(familyData)
-                localStorage.setItem('prediction_game_user_id', existingUser.id)
-                localStorage.setItem('prediction_game_family_id', familyData.id)
-                return { success: true }
-            } else {
+                    setUser(existingUser)
+                    setFamily(familyData)
+                    setViewingFamily(familyData)
+                    setIsGuest(false)
+                    localStorage.setItem('prediction_game_user_id', existingUser.id)
+                    localStorage.setItem('prediction_game_family_id', familyData.id)
+                    return { success: true }
+                } else {
                 // Create new user in this family
                 const { data: newUser, error: createError } = await supabase
                     .from('users')
@@ -197,6 +235,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     setUser(newUser)
                     setFamily(familyData)
                     setViewingFamily(familyData)
+                    setIsGuest(false)
                     localStorage.setItem('prediction_game_user_id', newUser.id)
                     localStorage.setItem('prediction_game_family_id', familyData.id)
                     return { success: true }
@@ -213,6 +252,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUser(null)
         setFamily(null)
         setViewingFamily(null)
+        setIsGuest(false)
         localStorage.removeItem('prediction_game_user_id')
         localStorage.removeItem('prediction_game_family_id')
     }
@@ -221,6 +261,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         const targetFamily = families.find(f => f.id === familyId)
         if (targetFamily) {
             setViewingFamily(targetFamily)
+            if (isGuest) {
+                localStorage.setItem('prediction_game_family_id', targetFamily.id)
+            }
         }
     }
 
@@ -236,6 +279,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             adminPin,
             refreshAdminPin,
             updateAdminPin,
+            isGuest,
             isLoading,
             isViewingOtherFamily,
             viewingFamily

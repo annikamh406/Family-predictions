@@ -59,13 +59,13 @@ export function ForecastingSummary({ year, familyId }: { year: number; familyId?
     if (loading) return <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-stone-300" /></div>
 
     return (
-        <div className="overflow-x-auto rounded-xl border border-stone-200 shadow-sm">
+        <div className="overflow-x-auto max-h-[70vh] overflow-y-auto rounded-xl border border-stone-200 shadow-sm">
             <table className="w-full text-sm text-left whitespace-nowrap">
                 <thead className="text-xs text-stone-500 uppercase bg-stone-50 border-b border-stone-200">
                     <tr>
-                        <th className="px-6 py-4 font-bold sticky left-0 bg-stone-50 z-10">Participant</th>
+                        <th className="px-6 py-4 font-bold sticky top-0 left-0 bg-stone-50 z-20">Participant</th>
                         {CATEGORIES.map(cat => (
-                            <th key={cat} className={cn("px-6 py-4 min-w-[300px]", CATEGORY_BG_COLORS[cat])}>
+                            <th key={cat} className={cn("px-6 py-4 min-w-[300px] sticky top-0 z-10", CATEGORY_BG_COLORS[cat])}>
                                 {CATEGORY_LABELS[cat]}
                             </th>
                         ))}

@@ -35,11 +35,15 @@ export function ForecastingView({ year }: { year: number }) {
     const timers = useRef<Record<string, NodeJS.Timeout>>({})
 
     useEffect(() => {
+        if (isViewingOtherFamily) {
+            setIsLoading(false)
+            return
+        }
         fetchPredictions()
         return () => {
             Object.values(timers.current).forEach(clearTimeout)
         }
-    }, [year, user?.id])
+    }, [year, user?.id, isViewingOtherFamily])
 
     const fetchPredictions = async () => {
         if (!user) return

@@ -31,15 +31,20 @@ export function BettingView({ year }: { year: number }) {
     const [bets, setBets] = useState<Record<string, number>>({})
     const [status, setStatus] = useState<Record<string, SaveStatus>>({}) // Per-card status
     const [isLoading, setIsLoading] = useState(true)
+    const [activeSliderId, setActiveSliderId] = useState<string | null>(null)
 
     const timers = useRef<Record<string, NodeJS.Timeout>>({})
 
     useEffect(() => {
+        if (isViewingOtherFamily) {
+            setIsLoading(false)
+            return
+        }
         fetchData()
         return () => {
             Object.values(timers.current).forEach(clearTimeout)
         }
-    }, [year, viewingFamily?.id, user?.id])
+    }, [year, viewingFamily?.id, user?.id, isViewingOtherFamily])
 
     const fetchData = async () => {
         if (!user || !viewingFamily) return
@@ -98,6 +103,7 @@ export function BettingView({ year }: { year: number }) {
     const handleSliderChange = (predictionId: string, val: number) => {
         setBets(prev => ({ ...prev, [predictionId]: val }))
         setStatus(prev => ({ ...prev, [predictionId]: 'idle' }))
+        setActiveSliderId(predictionId)
 
         if (timers.current[predictionId]) clearTimeout(timers.current[predictionId])
 
@@ -151,12 +157,12 @@ export function BettingView({ year }: { year: number }) {
                 <BettingSummary year={year} familyId={viewingFamily?.id} />
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {predictions.map((pred) => (
-                        <div
-                            key={pred.id}
-                            className={cn(
-                                "group p-6 rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md relative",
-                                CATEGORY_BG_COLORS[pred.category]
+                        {predictions.map((pred) => (
+                            <div
+                                key={pred.id}
+                                className={cn(
+                                    "group p-6 rounded-2xl border transition-all duration-300 shadow-sm hover:shadow-md relative",
+                                    CATEGORY_BG_COLORS[pred.category]
                             )}
                         >
                             <div className="flex justify-between items-start mb-4">
@@ -188,18 +194,32 @@ export function BettingView({ year }: { year: number }) {
                             </p>
 
                             <div className="pt-2">
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    step="5"
-                                    value={bets[pred.id] ?? 50}
-                                    onChange={(e) => handleSliderChange(pred.id, parseInt(e.target.value))}
-                                    className={cn(
-                                        "w-full h-2 rounded-lg appearance-none cursor-pointer bg-black/10",
-                                        "accent-stone-800 hover:accent-stone-600"
+                                <div className="relative">
+                                    {(activeSliderId === pred.id || status[pred.id] === 'saving' || status[pred.id] === 'saved') && (
+                                        <div
+                                            className="absolute -top-7 text-[11px] font-semibold text-stone-800 bg-white/90 border border-stone-200 rounded-md px-2 py-0.5 shadow-sm pointer-events-none"
+                                            style={{ left: `${bets[pred.id] ?? 50}%`, transform: 'translateX(-50%)' }}
+                                        >
+                                            {bets[pred.id] ?? 50}%
+                                        </div>
                                     )}
-                                />
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        step="5"
+                                        value={bets[pred.id] ?? 50}
+                                        onChange={(e) => handleSliderChange(pred.id, parseInt(e.target.value))}
+                                        onPointerDown={() => setActiveSliderId(pred.id)}
+                                        onPointerUp={() => setActiveSliderId(null)}
+                                        onPointerCancel={() => setActiveSliderId(null)}
+                                        onBlur={() => setActiveSliderId(null)}
+                                        className={cn(
+                                            "w-full h-2 rounded-lg appearance-none cursor-pointer bg-black/10",
+                                            "accent-stone-800 hover:accent-stone-600"
+                                        )}
+                                    />
+                                </div>
                                 <div className="flex justify-between text-[10px] text-stone-400 uppercase tracking-widest mt-1">
                                     <span>Impossible</span>
                                     <span>Certain</span>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useUser } from "@/contexts/UserContext"
 import { supabase } from "@/utils/supabase"
 import { Button } from "./ui/Button"
-import { Loader2, Trophy, Check, X, Minus, Medal, Info, Bot, Lock, LayoutGrid, Table2 } from "lucide-react"
+import { Loader2, Trophy, Medal, Info, Bot, Lock, LayoutGrid, Table2 } from "lucide-react"
 import { cn } from "@/utils/cn"
 import { ResultsSummary } from "./ResultsSummary"
 import { ResultsStats } from "./ResultsStats"
@@ -146,13 +146,8 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
 
     }, [predictions, bets])
 
-    const toggleOutcome = async (predictionId: string, currentStatus: boolean | null) => {
+    const setOutcome = async (predictionId: string, newStatus: boolean | null) => {
         if (isLocked || isViewingOtherFamily) return // Verify lock and family
-
-        let newStatus: boolean | null = null
-        if (currentStatus === null) newStatus = true
-        else if (currentStatus === true) newStatus = false
-        else newStatus = null
 
         setPredictions(prev => prev.map(p => p.id === predictionId ? { ...p, did_happen: newStatus } : p))
 
@@ -371,26 +366,61 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                                     <p className="text-stone-800 font-medium text-lg leading-snug">{pred.description}</p>
                                 </div>
 
-                                <button
-                                    onClick={() => toggleOutcome(pred.id, pred.did_happen)}
-                                    disabled={isLocked}
-                                    className={cn(
-                                        "shrink-0 h-10 w-10 rounded-full flex items-center justify-center border transition-all",
-                                        pred.did_happen === true ? "bg-green-100 border-green-300 text-green-700 shadow-sm" :
-                                            pred.did_happen === false ? "bg-rose-100 border-rose-300 text-rose-700 shadow-sm" :
-                                                "bg-stone-100 border-stone-200 text-stone-300",
-                                        !isLocked && "hover:bg-stone-200",
-                                        isLocked && "opacity-80 cursor-not-allowed"
-                                    )}
-                                >
-                                    {pred.did_happen === true ? <Check className="w-5 h-5" /> :
-                                        pred.did_happen === false ? <X className="w-5 h-5" /> :
-                                            <Minus className="w-5 h-5" />}
-                                </button>
+                                <OutcomeSlider
+                                    value={pred.did_happen}
+                                    onChange={(val) => setOutcome(pred.id, val)}
+                                    disabled={isLocked || isViewingOtherFamily}
+                                />
                             </div>
                         ))}
                     </div>
                 )}
+            </div>
+        </div>
+    )
+}
+
+function OutcomeSlider({
+    value,
+    onChange,
+    disabled
+}: {
+    value: boolean | null
+    onChange: (val: boolean | null) => void
+    disabled?: boolean
+}) {
+    const sliderValue = value === true ? 1 : value === false ? -1 : 0
+    const accentClass =
+        sliderValue === 1 ? "accent-green-600" :
+            sliderValue === -1 ? "accent-rose-600" :
+                "accent-stone-400"
+
+    return (
+        <div className="shrink-0 flex flex-col items-center gap-3">
+            <div className="text-[10px] text-stone-400 uppercase tracking-widest">Outcome</div>
+            <div className="relative w-20">
+                <input
+                    type="range"
+                    min={-1}
+                    max={1}
+                    step={1}
+                    value={sliderValue}
+                    onChange={(e) => {
+                        const next = Number(e.target.value)
+                        onChange(next === 1 ? true : next === -1 ? false : null)
+                    }}
+                    disabled={disabled}
+                    className={cn(
+                        "w-full h-4 rounded-full appearance-none bg-stone-200 cursor-pointer",
+                        accentClass,
+                        disabled && "opacity-70 cursor-not-allowed"
+                    )}
+                />
+                <div className="absolute -top-4 left-0 right-0 flex justify-between text-sm font-semibold">
+                    <span className="text-rose-600">✕</span>
+                    <span className="text-stone-400">–</span>
+                    <span className="text-green-600">✓</span>
+                </div>
             </div>
         </div>
     )

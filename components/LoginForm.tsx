@@ -9,7 +9,7 @@ import { cn } from "@/utils/cn"
 
 export function LoginForm() {
     const [username, setUsername] = useState("")
-    const [selectedFamilyId, setSelectedFamilyId] = useState("")
+    const [selectedFamilyId, setSelectedFamilyId] = useState("guest")
     const { login, families } = useUser()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
@@ -17,18 +17,18 @@ export function LoginForm() {
     // Auto-select first family when families load
     useEffect(() => {
         if (families.length > 0 && !selectedFamilyId) {
-            setSelectedFamilyId(families[0].id)
+            setSelectedFamilyId("guest")
         }
     }, [families, selectedFamilyId])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!username.trim()) {
-            setError("Please enter your name")
-            return
-        }
         if (!selectedFamilyId) {
             setError("Please select a family")
+            return
+        }
+        if (selectedFamilyId !== "guest" && !username.trim()) {
+            setError("Please enter your name")
             return
         }
 
@@ -79,11 +79,14 @@ export function LoginForm() {
                             {families.length === 0 ? (
                                 <option value="">Loading families...</option>
                             ) : (
-                                families.map(fam => (
-                                    <option key={fam.id} value={fam.id}>
-                                        {fam.name}
-                                    </option>
-                                ))
+                                <>
+                                    <option value="guest">Login as guest (view-only)</option>
+                                    {families.map(fam => (
+                                        <option key={fam.id} value={fam.id}>
+                                            {fam.name}
+                                        </option>
+                                    ))}
+                                </>
                             )}
                         </select>
                         <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400 pointer-events-none" />
@@ -91,10 +94,10 @@ export function LoginForm() {
 
                     {/* Name Input */}
                     <Input
-                        placeholder="Your Name (e.g., Mom, Dad, Annika)"
+                        placeholder={selectedFamilyId === "guest" ? "Guest mode (no name needed)" : "Your Name (e.g., Mom, Dad, Annika)"}
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        disabled={isLoading}
+                        disabled={isLoading || selectedFamilyId === "guest"}
                         className="text-center text-lg h-12"
                         autoFocus
                     />
@@ -109,11 +112,15 @@ export function LoginForm() {
                     </Button>
                 </form>
 
-                {selectedFamily && (
+                {selectedFamilyId === "guest" ? (
+                    <p className="text-xs text-stone-400">
+                        Viewing all families (read-only)
+                    </p>
+                ) : selectedFamily ? (
                     <p className="text-xs text-stone-400">
                         Joining the {selectedFamily.name} family
                     </p>
-                )}
+                ) : null}
             </div>
         </div>
     )

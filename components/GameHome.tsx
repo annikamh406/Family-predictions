@@ -10,7 +10,7 @@ import { cn } from "@/utils/cn"
 import { AdminPanel } from "./AdminPanel"
 
 export function GameHome() {
-    const { user, family, families, logout, viewingFamily, switchFamily, isViewingOtherFamily } = useUser()
+    const { user, family, families, logout, viewingFamily, switchFamily, isViewingOtherFamily, isGuest } = useUser()
     const [selectedYear, setSelectedYear] = useState<number | null>(null)
 
     // Header for Year Selection checks user is logged in
@@ -21,9 +21,9 @@ export function GameHome() {
                 <div className="absolute top-4 right-4 z-10">
                     <div className="flex items-center gap-4">
                         <span className="text-stone-400 text-sm hidden md:inline">
-                            {user?.username} ({family?.name})
+                            {user?.username} {family?.name ? `(${family.name})` : ""}
                         </span>
-                        <AdminPanel />
+                        {!isGuest && <AdminPanel />}
                         <Button variant="ghost" size="sm" onClick={logout} className="p-2 text-stone-400 hover:text-red-500">
                             <LogOut className="h-4 w-4" />
                         </Button>
@@ -51,12 +51,14 @@ export function GameHome() {
                     <span className="text-amber-800 text-sm font-medium flex items-center justify-center gap-2">
                         <Eye className="w-4 h-4" />
                         Viewing {viewingFamily.name}'s predictions (read-only)
-                        <button
-                            onClick={() => switchFamily(family?.id || '')}
-                            className="underline hover:text-amber-900"
-                        >
-                            Back to {family?.name}
-                        </button>
+                        {family?.id && (
+                            <button
+                                onClick={() => switchFamily(family.id)}
+                                className="underline hover:text-amber-900"
+                            >
+                                Back to {family.name}
+                            </button>
+                        )}
                     </span>
                 </div>
             )}
