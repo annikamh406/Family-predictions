@@ -55,12 +55,12 @@ export function LoginForm() {
         if (!normalized) return null
 
         let best: { name: string; dist: number } | null = null
-        familyUsers.forEach(name => {
+        for (const name of familyUsers) {
             const dist = levenshtein(normalized, normalizeName(name))
-            if (!best || dist < best.dist) {
+            if (best === null || dist < best.dist) {
                 best = { name, dist }
             }
-        })
+        }
 
         if (!best) return null
         const threshold = normalized.length > 8 ? 3 : 2
