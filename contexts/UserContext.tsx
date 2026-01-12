@@ -101,10 +101,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
         if (family && !data.find(f => f.id === family.id)) {
             setFamily(null)
+        } else if (family) {
+            const updatedFamily = data.find(f => f.id === family.id)
+            if (updatedFamily) {
+                setFamily(updatedFamily)
+            }
         }
 
         if (viewingFamily && !data.find(f => f.id === viewingFamily.id)) {
             setViewingFamily(data[0])
+        } else if (viewingFamily) {
+            const updatedViewing = data.find(f => f.id === viewingFamily.id)
+            if (updatedViewing) {
+                setViewingFamily(updatedViewing)
+            }
         }
 
         if (!viewingFamily && data[0]) {

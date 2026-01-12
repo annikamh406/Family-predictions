@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from "react"
-import { Info, X } from "lucide-react"
+import { Info, X, KeyRound } from "lucide-react"
 
 export function InfoPanel() {
     const [isOpen, setIsOpen] = useState(false)
@@ -50,6 +50,14 @@ export function InfoPanel() {
                                     Each player writes 4 predictions, one per likelihood category.
                                     Predictions auto-save as you type.
                                 </p>
+                                <div className="mt-3 space-y-2">
+                                    <div className="font-semibold text-stone-800">What makes a good prediction?</div>
+                                    <p>
+                                        A good prediction is one that is specific and verifiable. Make sure that we will be able to
+                                        mark your prediction at the end of the year as either having happened or not having happened.
+                                        For instance, a good prediction might be something like:
+                                    </p>
+                                </div>
                                 <ExampleCard title="Forecast Example">
                                     <div className="space-y-2">
                                         <div className="text-xs font-semibold text-stone-600">Highly Likely</div>
@@ -59,6 +67,19 @@ export function InfoPanel() {
                                         <div className="text-xs font-semibold text-stone-600">Highly Unlikely</div>
                                         <div className="text-sm text-stone-800 bg-stone-50 rounded-lg p-2 border border-stone-200">
                                             “JD Vance becomes president.”
+                                        </div>
+                                    </div>
+                                </ExampleCard>
+                                <div className="mt-3 text-sm text-stone-700">And a bad prediction might be something like:</div>
+                                <ExampleCard title="Bad Example">
+                                    <div className="space-y-2">
+                                        <div className="text-xs font-semibold text-stone-600">Highly Likely</div>
+                                        <div className="text-sm text-stone-800 bg-rose-50 rounded-lg p-2 border border-rose-200">
+                                            “The country goes to hell in a handbasket this year.”
+                                        </div>
+                                        <div className="text-xs font-semibold text-stone-600">Highly Unlikely</div>
+                                        <div className="text-sm text-stone-800 bg-rose-50 rounded-lg p-2 border border-rose-200">
+                                            “Matt Damon loses his edge and becomes a has been.”
                                         </div>
                                     </div>
                                 </ExampleCard>
@@ -117,6 +138,10 @@ export function InfoPanel() {
                                 <ul className="list-disc list-inside text-stone-600 space-y-1">
                                     <li>Create a new year</li>
                                     <li>Change the game phase for your family</li>
+                                    <li className="flex items-center gap-2">
+                                        <KeyRound className="w-4 h-4 text-stone-500" />
+                                        Change your family PIN (requires current family PIN)
+                                    </li>
                                 </ul>
                             </div>
                             <div className="space-y-2">

@@ -119,10 +119,7 @@ export function YearSelection({ onSelectYear }: { onSelectYear: (year: number) =
 
     return (
         <div className="max-w-4xl mx-auto space-y-12 py-12 animate-in fade-in zoom-in duration-500">
-            <div className="text-center space-y-4">
-                <div className="mx-auto w-20 h-20 bg-gradient-to-tr from-sky-100 to-purple-100 rounded-3xl flex items-center justify-center border border-white/50 shadow-sm">
-                    <Calendar className="w-10 h-10 text-stone-600" />
-                </div>
+            <div className="text-center space-y-4 pt-6">
                 <h1 className="text-4xl font-bold text-stone-800">
                     {viewingFamily?.name || 'Select a Year'}
                 </h1>
