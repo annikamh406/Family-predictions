@@ -49,6 +49,9 @@ export function AdminPanel() {
     const [mergeTargetId, setMergeTargetId] = useState("")
     const [mergeSelections, setMergeSelections] = useState<Record<number, "source" | "target" | null>>({})
     const [mergeOptions, setMergeOptions] = useState<UserYearEntry[]>([])
+    const [yearOptions, setYearOptions] = useState<number[]>([])
+    const [removeUserId, setRemoveUserId] = useState("")
+    const [removeYear, setRemoveYear] = useState<number | "">("")
 
     const hasUnsavedChanges = useMemo(() => {
         const familyDirty = families.some(fam => {
@@ -113,6 +116,9 @@ export function AdminPanel() {
         setMergeTargetId("")
         setMergeSelections({})
         setMergeOptions([])
+        setYearOptions([])
+        setRemoveUserId("")
+        setRemoveYear("")
     }
 
     const handleClose = () => {
@@ -161,6 +167,7 @@ export function AdminPanel() {
     useEffect(() => {
         if (!isOpen || !selectedFamilyId) return
         fetchUsers(selectedFamilyId)
+        fetchYears(selectedFamilyId)
     }, [isOpen, selectedFamilyId])
 
     useEffect(() => {
@@ -202,6 +209,20 @@ export function AdminPanel() {
             setUserEdits({})
         }
         setIsLoadingUsers(false)
+    }
+
+    const fetchYears = async (familyId: string) => {
+        const { data } = await supabase
+            .from('game_years')
+            .select('year')
+            .eq('family_id', familyId)
+            .order('year', { ascending: false })
+
+        if (data) {
+            setYearOptions(data.map(row => row.year))
+        } else {
+            setYearOptions([])
+        }
     }
 
     const fetchUserYears = async (userId: string, familyId: string) => {
@@ -523,6 +544,52 @@ export function AdminPanel() {
         setMergeTargetId("")
         setMergeSelections({})
         setMergeOptions([])
+        setIsSaving(false)
+    }
+
+    const handleRemoveFromYear = async () => {
+        if (!removeUserId || removeYear === "") {
+            alert("Select a person and year.")
+            return
+        }
+
+        const target = users.find(u => u.id === removeUserId)
+        const pin = prompt("Enter master admin PIN to remove from year:")
+        if (pin !== adminPin) {
+            alert("Incorrect admin PIN")
+            return
+        }
+
+        const ok = confirm(`Remove ${target?.username} from ${removeYear}? This deletes their predictions and bets for that year only.`)
+        if (!ok) return
+
+        setIsSaving(true)
+
+        const { data: yearPredictions } = await supabase
+            .from('predictions')
+            .select('id')
+            .eq('family_id', selectedFamilyId)
+            .eq('year', removeYear)
+
+        const yearPredictionIds = yearPredictions?.map(p => p.id) || []
+
+        if (yearPredictionIds.length > 0) {
+            await supabase
+                .from('bets')
+                .delete()
+                .eq('user_id', removeUserId)
+                .in('prediction_id', yearPredictionIds)
+        }
+
+        await supabase
+            .from('predictions')
+            .delete()
+            .eq('user_id', removeUserId)
+            .eq('family_id', selectedFamilyId)
+            .eq('year', removeYear)
+
+        setRemoveUserId("")
+        setRemoveYear("")
         setIsSaving(false)
     }
 
@@ -883,6 +950,47 @@ export function AdminPanel() {
                                     </Button>
                                 </div>
                             )}
+                        </section>
+
+                        <section className="space-y-4">
+                            <div className="text-stone-700 font-semibold">Remove Person from a Year</div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <select
+                                    value={removeUserId}
+                                    onChange={(e) => setRemoveUserId(e.target.value)}
+                                    className={cn(
+                                        "h-10 px-3 rounded-xl border border-stone-200 bg-white text-sm text-stone-700 w-full",
+                                        "focus:outline-none focus:ring-2 focus:ring-stone-900/10"
+                                    )}
+                                >
+                                    <option value="">Select person</option>
+                                    {users.map(user => (
+                                        <option key={user.id} value={user.id}>{user.username}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    value={removeYear}
+                                    onChange={(e) => setRemoveYear(Number(e.target.value))}
+                                    className={cn(
+                                        "h-10 px-3 rounded-xl border border-stone-200 bg-white text-sm text-stone-700 w-full",
+                                        "focus:outline-none focus:ring-2 focus:ring-stone-900/10"
+                                    )}
+                                >
+                                    <option value="">Select year</option>
+                                    {yearOptions.map(year => (
+                                        <option key={year} value={year}>{year}</option>
+                                    ))}
+                                </select>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleRemoveFromYear}
+                                    disabled={isSaving}
+                                    className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                                >
+                                    Remove from Year
+                                </Button>
+                            </div>
                         </section>
                             </>
                         )}

@@ -117,13 +117,25 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
     }
 
     useEffect(() => {
-        if (predictions.length === 0 || bets.length === 0) return
+        if (predictions.length === 0) return
 
         const userScores: Record<string, number> = {}
+        const participantSet = new Set<string>()
+
+        predictions.forEach(pred => {
+            if (pred.user?.username) {
+                participantSet.add(pred.user.username)
+            }
+        })
 
         bets.forEach(bet => {
             const pred = predictions.find(p => p.id === bet.prediction_id)
-            if (!pred || pred.did_happen === null) return
+            if (!pred) return
+
+            const username = bet.user?.username || 'Unknown'
+            participantSet.add(username)
+
+            if (pred.did_happen === null) return
 
             const outcome = pred.did_happen
             let points = 0
@@ -134,12 +146,11 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                 points = 50 - bet.probability
             }
 
-            const username = bet.user?.username || 'Unknown'
             userScores[username] = (userScores[username] || 0) + points
         })
 
-        const sortedScores = Object.entries(userScores)
-            .map(([username, score]) => ({ username, score }))
+        const sortedScores = Array.from(participantSet)
+            .map(username => ({ username, score: userScores[username] || 0 }))
             .sort((a, b) => b.score - a.score)
 
         setScores(sortedScores)

@@ -101,6 +101,13 @@ export function ResultsSummary({ year, familyId }: { year: number; familyId?: st
                 const betsMap: Record<string, Record<string, number>> = {}
                 const userSet = new Set<string>()
 
+                // Include prediction authors even if they didn't place bets
+                sortedPreds.forEach(pred => {
+                    if (pred.user?.username) {
+                        userSet.add(pred.user.username)
+                    }
+                })
+
                 // Process Bets
                 betsData.forEach((b: any) => {
                     const username = b.user.username
