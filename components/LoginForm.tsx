@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useUser } from "@/contexts/UserContext"
 import { Button } from "./ui/Button"
 import { Input } from "./ui/Input"
@@ -13,6 +13,7 @@ export function LoginForm() {
     const { login, families } = useUser()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState("")
+    const nameInputRef = useRef<HTMLInputElement | null>(null)
 
     // Auto-select first family when families load
     useEffect(() => {
@@ -93,14 +94,20 @@ export function LoginForm() {
                     </div>
 
                     {/* Name Input */}
-                    <Input
-                        placeholder={selectedFamilyId === "guest" ? "Guest mode (no name needed)" : "Your Name (e.g., Mom, Dad, Annika)"}
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        disabled={isLoading || selectedFamilyId === "guest"}
-                        className="text-center text-lg h-12"
-                        autoFocus
-                    />
+                    <div
+                        onClick={() => nameInputRef.current?.focus()}
+                        className="cursor-text"
+                    >
+                        <Input
+                            ref={nameInputRef}
+                            placeholder={selectedFamilyId === "guest" ? "Guest mode (no name needed)" : "Your Name (e.g., Mom, Dad, Annika)"}
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            disabled={isLoading || selectedFamilyId === "guest"}
+                            className="text-center text-lg h-12"
+                            autoFocus
+                        />
+                    </div>
 
                     {/* Error Message */}
                     {error && (

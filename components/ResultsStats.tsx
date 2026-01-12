@@ -179,9 +179,9 @@ export function ResultsStats({ year, familyId }: { year: number; familyId?: stri
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {categoryStats.map(stat => (
                         <div key={stat.category} className="border border-stone-200 rounded-2xl p-4 space-y-3">
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                                 <div className="font-semibold text-stone-700">{CATEGORY_LABELS[stat.category]}</div>
-                                <div className="text-sm text-stone-600">
+                                <div className="text-sm text-stone-600 sm:text-right">
                                     {stat.happened} happened • {stat.notHappened} didn't • {stat.unknown} unknown
                                 </div>
                             </div>
@@ -247,6 +247,7 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
     const padding = 32
     const [isZoomed, setIsZoomed] = useState(false)
     const [hoverPoint, setHoverPoint] = useState<{ point: UserPoint; x: number; y: number } | null>(null)
+    const [isTouch, setIsTouch] = useState(false)
 
     const xValues = points.map(p => p.bullishness)
     const yValues = points.map(p => p.points)
@@ -293,7 +294,11 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
                     {isZoomed ? "Reset zoom" : "Zoom to humans"}
                 </button>
             </div>
-            <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[420px]">
+            <svg
+                viewBox={`0 0 ${width} ${height}`}
+                className="w-full min-w-[420px]"
+                onTouchStart={() => setIsTouch(true)}
+            >
                 <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e7e5e4" />
                 <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e7e5e4" />
                 <line
@@ -353,8 +358,20 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
                             key={point.username}
                             onMouseEnter={() => setHoverPoint({ point, x, y })}
                             onMouseLeave={() => setHoverPoint(null)}
+                            onTouchStart={(e) => {
+                                e.preventDefault()
+                                setHoverPoint({ point, x, y })
+                                setIsTouch(true)
+                            }}
                         >
                             <circle cx={x} cy={y} r={5} className="fill-stone-800" />
+                            <circle
+                                cx={x}
+                                cy={y}
+                                r={isTouch ? 14 : 8}
+                                className="fill-transparent"
+                                pointerEvents="all"
+                            />
                             <text
                                 x={labelOnLeft ? x - 12 : x + 12}
                                 y={y + 4}
@@ -414,6 +431,7 @@ function DensityPlot({
     showAxisLabels?: boolean
     showMeanLine?: boolean
 }) {
+    const [activeIndex, setActiveIndex] = useState<number | null>(null)
     const buckets = new Array(10).fill(0)
     values.forEach(val => {
         const idx = Math.min(9, Math.floor(val / 10))
@@ -427,12 +445,26 @@ function DensityPlot({
         <div className="space-y-2">
             <div className="relative grid grid-cols-10 gap-1 h-16 items-end">
                 {buckets.map((count, idx) => (
-                    <div key={idx} className="relative group w-full h-full flex items-end">
+                    <div
+                        key={idx}
+                        className="relative group w-full h-full flex items-end"
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        onMouseLeave={() => setActiveIndex(null)}
+                        onTouchStart={(e) => {
+                            e.preventDefault()
+                            setActiveIndex(prev => (prev === idx ? null : idx))
+                        }}
+                    >
                         <div
                             className={cn("rounded-sm bg-stone-200 w-full")}
                             style={{ height: `${Math.max(8, (count / max) * 100)}%` }}
                         />
-                        <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-stone-800 text-white text-[12px] px-2 py-1 opacity-0 group-hover:opacity-100 shadow">
+                        <div
+                            className={cn(
+                                "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-stone-800 text-white text-[12px] px-2 py-1 opacity-0 shadow group-hover:opacity-100",
+                                activeIndex === idx && "opacity-100"
+                            )}
+                        >
                             {idx * 10}-{idx * 10 + 9}%: {binNames[idx] || "No bets"}
                         </div>
                     </div>
@@ -447,12 +479,12 @@ function DensityPlot({
             {showAxisLabels && (
                 <div className="grid grid-cols-10 gap-1 text-[12px] text-stone-500">
                     {Array.from({ length: 10 }).map((_, idx) => (
-                        <span key={idx} className="text-center">{idx * 10}%</span>
+                        <span key={idx} className="text-center">{idx * 10}</span>
                     ))}
                 </div>
             )}
             {showAxisLabels && (
-                <div className="text-[14px] text-stone-600 text-center">Bet distribution</div>
+                <div className="text-[14px] text-stone-600 text-center">Bet (%) distribution</div>
             )}
         </div>
     )

@@ -63,7 +63,7 @@ export function ForecastingSummary({ year, familyId }: { year: number; familyId?
             <table className="w-full text-sm text-left whitespace-nowrap">
                 <thead className="text-xs text-stone-500 uppercase bg-stone-50 border-b border-stone-200">
                     <tr>
-                        <th className="px-6 py-4 font-bold sticky top-0 left-0 bg-stone-50 z-20">Participant</th>
+                        <th className="px-6 py-4 font-bold sticky top-0 md:left-0 md:sticky bg-stone-50 z-20">Participant</th>
                         {CATEGORIES.map(cat => (
                             <th key={cat} className={cn("px-6 py-4 min-w-[300px] sticky top-0 z-10", CATEGORY_BG_COLORS[cat])}>
                                 {CATEGORY_LABELS[cat]}
@@ -74,7 +74,7 @@ export function ForecastingSummary({ year, familyId }: { year: number; familyId?
                 <tbody className="divide-y divide-stone-100 bg-white">
                     {users.map(username => (
                         <tr key={username} className="hover:bg-stone-50/50">
-                            <td className="px-6 py-4 font-medium text-stone-900 sticky left-0 bg-white border-r border-stone-100">
+                            <td className="px-6 py-4 font-medium text-stone-900 md:sticky md:left-0 bg-white border-r border-stone-100 md:z-10">
                                 {username}
                             </td>
                             {CATEGORIES.map(cat => (

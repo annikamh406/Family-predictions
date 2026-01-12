@@ -118,7 +118,7 @@ export function BettingSummary({ year, familyId }: { year: number; familyId?: st
             <table className="w-full text-left whitespace-nowrap border-collapse">
                 <thead className="text-xs text-stone-500 uppercase bg-stone-50 text-center">
                     <tr>
-                        <th className="px-4 py-3 min-w-[300px] text-left sticky top-0 left-0 bg-stone-50 z-30 border-b border-r border-stone-200">
+                        <th className="px-4 py-3 min-w-[300px] text-left sticky top-0 md:left-0 md:sticky bg-stone-50 z-30 border-b border-r border-stone-200">
                             Prediction
                         </th>
                         {sortedUsers.map(u => (
@@ -131,7 +131,7 @@ export function BettingSummary({ year, familyId }: { year: number; familyId?: st
                 <tbody className="bg-white">
                     {predictions.map(pred => (
                         <tr key={pred.id} className="hover:bg-stone-50/50 border-b border-stone-50 last:border-0">
-                            <td className="px-4 py-3 sticky left-0 bg-white z-10 border-r border-stone-100 max-w-[400px]">
+                            <td className="px-4 py-3 md:sticky md:left-0 bg-white md:z-10 border-r border-stone-100 max-w-[400px]">
                                 <div className="flex flex-col gap-1">
                                     <div className="flex items-center gap-2">
                                         <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded uppercase", CATEGORY_COLORS[pred.category])}>
