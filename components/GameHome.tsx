@@ -18,7 +18,7 @@ export function GameHome() {
         return (
             <div className="min-h-screen relative pb-10">
                 {/* Top Bar */}
-                <div className="absolute top-4 right-4 z-10">
+                <div className="absolute top-4 right-14 z-10">
                     <div className="flex items-center gap-4">
                         <span className="text-stone-400 text-sm hidden md:inline">
                             {user?.username} {family?.name ? `(${family.name})` : ""}

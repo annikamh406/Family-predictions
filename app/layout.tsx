@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 import { UserProvider } from "@/contexts/UserContext";
+import { InfoPanel } from "@/components/InfoPanel";
 
 export default function RootLayout({
   children,
@@ -31,6 +32,7 @@ export default function RootLayout({
       >
         <UserProvider>
           {children}
+          <InfoPanel />
         </UserProvider>
       </body>
     </html>
