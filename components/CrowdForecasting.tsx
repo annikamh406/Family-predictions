@@ -423,24 +423,14 @@ export function CrowdForecasting() {
         return index >= 0 ? index : 0
     }, [snapshotOptions, selectedSnapshot])
     const selectedSnapshotLabel = snapshotOptions[selectedSnapshotIndex]?.label ?? 'Latest (live)'
-    const displayedDistribution = useMemo(() => {
+    const chartValues = useMemo(() => {
         if (!selectedEvent) return []
-        const spec = getBinSpec(selectedEvent)
-        const fallback = Array.isArray(userForecast?.distribution) &&
-            userForecast?.distribution.length === spec.bucketCount
-            ? normalizeDistribution(userForecast.distribution)
-            : normalizedEditorValues.length === spec.bucketCount
-                ? normalizedEditorValues
-                : []
         if (selectedSnapshot === 'latest') {
-            if (aggregateDistribution && aggregateDistribution.length > 0) return aggregateDistribution
-            return fallback
+            return aggregateDistribution && aggregateDistribution.length > 0 ? aggregateDistribution : []
         }
         const target = snapshots.find(s => s.snapshot_at === selectedSnapshot)
-        return target?.distribution || aggregateDistribution || fallback || []
-    }, [selectedSnapshot, snapshots, aggregateDistribution, selectedEvent, userForecast, normalizedEditorValues])
-
-    const chartValues = displayedDistribution
+        return target?.distribution || []
+    }, [selectedSnapshot, snapshots, aggregateDistribution, selectedEvent?.id])
 
     useEffect(() => {
         if (!selectedEvent || !user || isGuest) return
@@ -852,12 +842,12 @@ function DistributionChart({ event, values }: { event: CrowdEvent; values: numbe
                         />
                     </svg>
                 </div>
-                <div className="mt-2 flex gap-1 text-[10px] text-stone-400">
+                <div className="mt-2 flex gap-1 text-sm font-semibold text-stone-500">
                     {displayValues.map((value, idx) => (
                         <div key={`${idx}-${spec.labels[displayOrder[idx]] || 'bin'}`} className="flex-1 text-center">{value}%</div>
                     ))}
                 </div>
-                <div className="mt-3 flex gap-1 text-[10px] text-stone-400">
+                <div className="mt-3 flex gap-1 text-sm font-semibold text-stone-500">
                     {displayOrder.map((rawIndex) => (
                         <div key={spec.labels[rawIndex]} className="flex-1 text-center truncate">{spec.labels[rawIndex]}</div>
                     ))}
@@ -1026,7 +1016,7 @@ function DistributionEditor({
                         </svg>
                     </div>
                 </div>
-                <div className="mt-3 flex gap-1 text-[10px] text-stone-400">
+                <div className="mt-3 flex gap-1 text-sm font-semibold text-stone-500">
                     {displayOrder.map((rawIndex) => (
                         <div key={spec.labels[rawIndex]} className="flex-1 text-center truncate">
                             {spec.labels[rawIndex]}

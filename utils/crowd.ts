@@ -48,7 +48,7 @@ export function getBinSpec(event: CrowdEvent): BinSpec {
         case 'by_deadline': {
             const labels: string[] = []
             for (let i = 0; i < 100; i += 5) {
-                labels.push(`${i}-${i + 5}%`)
+                labels.push(`${i}%`)
             }
             return { labels, bucketCount: labels.length, hasNever: false }
         }
