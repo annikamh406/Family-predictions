@@ -9,6 +9,7 @@ import { LogOut, Users, Eye } from "lucide-react"
 import { cn } from "@/utils/cn"
 import { AdminPanel } from "./AdminPanel"
 import { FamilyPinModal } from "./FamilyPinModal"
+import { CrowdToggle } from "./CrowdToggle"
 
 export function GameHome() {
     const { user, family, families, logout, viewingFamily, switchFamily, isViewingOtherFamily, isGuest } = useUser()
@@ -19,15 +20,20 @@ export function GameHome() {
         return (
             <div className="min-h-screen relative pb-10">
                 {/* Top Bar */}
-                <div className="absolute top-4 left-4 right-4 z-10">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <FamilySwitcher
-                            families={families}
-                            currentFamily={family}
-                            viewingFamily={viewingFamily}
-                            onSwitch={switchFamily}
-                        />
-                        <div className="flex items-center gap-2 mr-12">
+                <div className="absolute top-4 left-4 right-4 z-10 pr-12">
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-3">
+                        <div className="justify-self-start">
+                            <FamilySwitcher
+                                families={families}
+                                currentFamily={family}
+                                viewingFamily={viewingFamily}
+                                onSwitch={switchFamily}
+                            />
+                        </div>
+                        <div className="justify-self-center">
+                            <CrowdToggle />
+                        </div>
+                        <div className="flex items-center gap-2 justify-self-end">
                             <span className="text-stone-400 text-sm hidden md:inline">
                                 {user?.username} {family?.name ? `(${family.name})` : ""}
                             </span>
@@ -84,7 +90,7 @@ function FamilySwitcher({
     if (families.length <= 1) return null
 
     return (
-        <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 border border-stone-200 shadow-sm max-w-full">
+        <div className="inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 border border-stone-200 shadow-sm">
             <Users className="w-4 h-4 text-stone-400 shrink-0" />
             <select
                 value={viewingFamily?.id || ""}
