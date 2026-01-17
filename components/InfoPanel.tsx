@@ -1,10 +1,28 @@
 'use client'
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Info, X, KeyRound } from "lucide-react"
 
 export function InfoPanel() {
     const [isOpen, setIsOpen] = useState(false)
+
+    useEffect(() => {
+        const shouldShow = localStorage.getItem('prediction_game_show_help')
+        if (shouldShow === '1') {
+            setIsOpen(true)
+            localStorage.removeItem('prediction_game_show_help')
+        }
+
+        const handleShowHelp = () => {
+            setIsOpen(true)
+            localStorage.removeItem('prediction_game_show_help')
+        }
+
+        window.addEventListener('prediction-game-show-help', handleShowHelp)
+        return () => {
+            window.removeEventListener('prediction-game-show-help', handleShowHelp)
+        }
+    }, [])
 
     return (
         <>

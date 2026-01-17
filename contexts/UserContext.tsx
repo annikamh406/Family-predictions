@@ -35,6 +35,8 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
+const cleanUsername = (value: string) => value.trim().replace(/\s+/g, " ")
+
 export function UserProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [family, setFamily] = useState<Family | null>(null)
@@ -198,6 +200,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 return { success: true }
             }
 
+            const cleanedUsername = cleanUsername(username)
+            if (!cleanedUsername) {
+                return { success: false, error: "Please enter your name" }
+            }
+
             // Find the family
             const { data: familyData, error: familyError } = await supabase
                 .from('families')
@@ -213,7 +220,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             let { data: existingUser, error: fetchError } = await supabase
                 .from('users')
                 .select('*')
-                .ilike('username', username)
+                .ilike('username', cleanedUsername)
                 .eq('family_id', familyId)
                 .single()
 
@@ -233,11 +240,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 // Create new user in this family
                 const { data: newUser, error: createError } = await supabase
                     .from('users')
-                    .insert([{ username, family_id: familyId }])
+                    .insert([{ username: cleanedUsername, family_id: familyId }])
                     .select()
                     .single()
 
                 if (createError) {
+                    if (createError.code === '23505') {
+                        return { success: false, error: "That name is already used in another family." }
+                    }
                     return { success: false, error: createError.message }
                 }
 
@@ -248,6 +258,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     setIsGuest(false)
                     localStorage.setItem('prediction_game_user_id', newUser.id)
                     localStorage.setItem('prediction_game_family_id', familyData.id)
+                    localStorage.setItem('prediction_game_show_help', '1')
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new Event('prediction-game-show-help'))
+                    }
                     return { success: true }
                 }
             }

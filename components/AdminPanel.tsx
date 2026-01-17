@@ -27,6 +27,9 @@ type UserYearEntry = {
     hasTarget: boolean
 }
 
+const cleanUsername = (value: string) => value.trim().replace(/\s+/g, " ")
+const normalizeUsername = (value: string) => cleanUsername(value).toLowerCase()
+
 export function AdminPanel() {
     const { families, family, refreshFamilies, adminPin, updateAdminPin, refreshAdminPin } = useUser()
     const [isOpen, setIsOpen] = useState(false)
@@ -52,6 +55,15 @@ export function AdminPanel() {
     const [yearOptions, setYearOptions] = useState<number[]>([])
     const [removeUserId, setRemoveUserId] = useState("")
     const [removeYear, setRemoveYear] = useState<number | "">("")
+
+    const isDuplicateUsername = (value: string, ignoreId?: string) => {
+        const normalized = normalizeUsername(value)
+        if (!normalized) return false
+        return users.some(user => {
+            if (ignoreId && user.id === ignoreId) return false
+            return normalizeUsername(user.username) === normalized
+        })
+    }
 
     const hasUnsavedChanges = useMemo(() => {
         const familyDirty = families.some(fam => {
@@ -379,10 +391,20 @@ export function AdminPanel() {
         const edit = userEdits[userId]
         if (!edit) return
 
+        const cleanedUsername = cleanUsername(edit.username)
+        if (!cleanedUsername) {
+            alert("Enter a name")
+            return
+        }
+        if (isDuplicateUsername(cleanedUsername, userId)) {
+            alert("That name is already used in this family.")
+            return
+        }
+
         setIsSaving(true)
         const { error } = await supabase
             .from('users')
-            .update({ username: edit.username.trim(), pin: edit.pin.trim() || null })
+            .update({ username: cleanedUsername, pin: edit.pin.trim() || null })
             .eq('id', userId)
 
         if (error) {
@@ -403,11 +425,17 @@ export function AdminPanel() {
             return
         }
 
+        const cleanedUsername = cleanUsername(newUserName)
+        if (isDuplicateUsername(cleanedUsername)) {
+            alert("That name is already used in this family.")
+            return
+        }
+
         setIsSaving(true)
         const { error } = await supabase
             .from('users')
             .insert([{
-                username: newUserName.trim(),
+                username: cleanedUsername,
                 pin: newUserPin.trim() || null,
                 family_id: selectedFamilyId
             }])

@@ -15,7 +15,7 @@ import {
     sortPredictionsByCategory,
     PredictionCategory
 } from "@/utils/predictions"
-import { BOT_NAMES } from "@/utils/bots"
+import { BOT_NAMES, generateBotBets } from "@/utils/bots"
 
 type Prediction = {
     id: string
@@ -52,6 +52,7 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
     const [predStats, setPredStats] = useState<Record<string, PredictionStats>>({})
     const [isLoading, setIsLoading] = useState(true)
     const [showBots, setShowBots] = useState(false)
+    const [isGeneratingBots, setIsGeneratingBots] = useState(false)
     const [viewMode, setViewMode] = useState<'cards' | 'summary' | 'stats'>('cards')
 
     useEffect(() => {
@@ -88,6 +89,30 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
         }
         setIsLoading(false)
     }
+
+    const hasBotBets = (allBets: Bet[]) => {
+        const botValues = Object.values(BOT_NAMES)
+        return allBets.some(bet => botValues.includes(bet.user?.username))
+    }
+
+    const ensureBots = async () => {
+        if (!viewingFamily || isViewingOtherFamily || isGeneratingBots) return
+        if (hasBotBets(bets)) return
+
+        setIsGeneratingBots(true)
+        try {
+            await generateBotBets(year, viewingFamily.id)
+            await fetchData()
+        } finally {
+            setIsGeneratingBots(false)
+        }
+    }
+
+    useEffect(() => {
+        if (showBots) {
+            ensureBots()
+        }
+    }, [showBots, viewingFamily?.id, year])
 
     const calculateStats = (allBets: Bet[]) => {
         const stats: Record<string, { sum: number, vals: number[] }> = {}
@@ -253,9 +278,11 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-stone-400">Bots</span>
                             <button
-                                onClick={() => setShowBots(!showBots)}
+                                onClick={() => setShowBots(prev => !prev)}
+                                disabled={isGeneratingBots}
                                 className={cn("w-8 h-4 rounded-full relative transition-colors duration-300",
-                                    showBots ? "bg-stone-800" : "bg-stone-300"
+                                    showBots ? "bg-stone-800" : "bg-stone-300",
+                                    isGeneratingBots && "opacity-60 cursor-not-allowed"
                                 )}
                             >
                                 <div className={cn("w-3 h-3 bg-white rounded-full absolute top-0.5 transition-transform duration-300 shadow-sm",
