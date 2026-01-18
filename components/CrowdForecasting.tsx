@@ -923,6 +923,11 @@ function DistributionEditor({
         )
     }
 
+    const displayValues = mapValues(rawValues, displayOrder)
+    const points = pointsFromValues(displayValues, chartHeight, 100)
+    const linePath = buildStepPath(points)
+    const areaPath = `${linePath} L 100 ${chartHeight - 8} L 0 ${chartHeight - 8} Z`
+
     const updateFromPointer = (clientX: number, clientY: number) => {
         const container = chartRef.current
         if (!container) return
@@ -968,7 +973,7 @@ function DistributionEditor({
                         const rect = container.getBoundingClientRect()
                         const xRatio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
                         const pointerY = e.clientY - rect.top
-                        const lineY = getLineYAtRatio(mapValues(rawValues, displayOrder), xRatio, chartHeight)
+                        const lineY = getLineYAtRatio(displayValues, xRatio, chartHeight)
                         if (Math.abs(pointerY - lineY) > 24) return
                         const displayIndex = Math.round(xRatio * Math.max(displayOrder.length - 1, 1))
                         activeIndexRef.current = displayIndex
@@ -1002,9 +1007,9 @@ function DistributionEditor({
                                     <stop offset="100%" stopColor="#1c1917" stopOpacity="0.05" />
                                 </linearGradient>
                             </defs>
-                            <path d={buildStepPath(pointsFromValues(mapValues(rawValues, displayOrder), chartHeight, 100)) + ` L 100 ${chartHeight - 8} L 0 ${chartHeight - 8} Z`} fill="url(#editorFill)" />
+                            <path d={areaPath} fill="url(#editorFill)" />
                             <path
-                                d={buildStepPath(pointsFromValues(mapValues(rawValues, displayOrder), chartHeight, 100))}
+                                d={linePath}
                                 fill="none"
                                 stroke="#1c1917"
                                 strokeWidth="2"
@@ -1014,6 +1019,18 @@ function DistributionEditor({
                                 shapeRendering="geometricPrecision"
                             />
                         </svg>
+                        <div className="absolute inset-0 pointer-events-none">
+                            {points.map((point, idx) => (
+                                <span
+                                    key={`${idx}-${point.x.toFixed(2)}`}
+                                    className="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-stone-900"
+                                    style={{
+                                        left: `${point.x}%`,
+                                        top: `${(point.y / chartHeight) * 100}%`
+                                    }}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
                 <div className="mt-3 flex gap-1 text-sm font-semibold text-stone-500">
