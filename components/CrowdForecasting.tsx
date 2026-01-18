@@ -305,12 +305,19 @@ export function CrowdForecasting() {
         setIsSavingEvent(false)
     }
 
+    const currentYear = useMemo(() => new Date().getFullYear(), [])
+    const canExtendPast = useMemo(() => {
+        if (!selectedEvent || selectedEvent.type !== 'by_year') return false
+        const minYear = selectedEvent.min_year ?? currentYear
+        return minYear > currentYear
+    }, [selectedEvent?.id, selectedEvent?.min_year, selectedEvent?.type, currentYear])
+
     const handleExtendYears = async (direction: 'future' | 'past') => {
         if (!selectedEvent || selectedEvent.type !== 'by_year') return
         if (!user || isGuest) return
+        if (direction === 'past' && !canExtendPast) return
 
-        const currentYear = new Date().getFullYear()
-        const minYear = selectedEvent.min_year || currentYear
+        const minYear = selectedEvent.min_year ?? currentYear
         const maxYear = selectedEvent.max_year || minYear + 5
         const nextMin = direction === 'past' ? minYear - 1 : minYear
         const nextMax = direction === 'future' ? maxYear + 1 : maxYear
@@ -410,8 +417,9 @@ export function CrowdForecasting() {
         if (!selectedEvent) {
             return [{ value: 'latest', label: 'Latest (live)' }]
         }
+        const orderedSnapshots = [...snapshots].sort((a, b) => a.snapshot_at.localeCompare(b.snapshot_at))
         return [
-            ...snapshots.map(snapshot => ({
+            ...orderedSnapshots.map(snapshot => ({
                 value: snapshot.snapshot_at,
                 label: formatSnapshotLabel(snapshot.snapshot_at, selectedEvent.snapshot_cadence)
             })),
@@ -757,6 +765,7 @@ export function CrowdForecasting() {
                                                 normalizedValues={normalizedEditorValues}
                                                 onRawChange={setRawEditorValues}
                                                 onExtendYears={handleExtendYears}
+                                                canExtendPast={canExtendPast}
                                             />
                                             <div className="flex items-center gap-2">
                                                 <Button
@@ -887,13 +896,15 @@ function DistributionEditor({
     rawValues,
     normalizedValues,
     onRawChange,
-    onExtendYears
+    onExtendYears,
+    canExtendPast
 }: {
     event: CrowdEvent
     rawValues: number[]
     normalizedValues: number[]
     onRawChange: (next: number[]) => void
     onExtendYears: (direction: 'future' | 'past') => void
+    canExtendPast: boolean
 }) {
     const spec = getBinSpec(event)
     const chartRef = useRef<HTMLDivElement | null>(null)
@@ -972,7 +983,11 @@ function DistributionEditor({
                         <button
                             type="button"
                             onClick={() => onExtendYears('past')}
-                            className="absolute left-0 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full border border-stone-200 bg-white text-stone-500 hover:text-stone-800 shadow-sm"
+                            disabled={!canExtendPast}
+                            className={cn(
+                                "absolute left-0 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full border border-stone-200 bg-white shadow-sm",
+                                canExtendPast ? "text-stone-500 hover:text-stone-800" : "text-stone-300 cursor-not-allowed"
+                            )}
                             aria-label="Add previous year"
                         >
                             +
@@ -992,8 +1007,8 @@ function DistributionEditor({
                         className={cn("relative h-40 rounded-xl border border-dashed border-stone-200 bg-white/70", isDragging && "ring-2 ring-stone-300")}
                     >
                         <div className="absolute inset-y-2 left-2 flex flex-col justify-between text-[11px] font-semibold text-stone-500">
-                            {axisLabels.map((label) => (
-                                <span key={label}>{label}</span>
+                            {axisLabels.map((label, idx) => (
+                                <span key={`${label}-${idx}`}>{label}</span>
                             ))}
                         </div>
                         <div
