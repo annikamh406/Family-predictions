@@ -901,6 +901,7 @@ function DistributionEditor({
     const activeIndexRef = useRef<number | null>(null)
     const [inputValues, setInputValues] = useState<string[]>([])
     const [activeInputIndex, setActiveInputIndex] = useState<number | null>(null)
+    const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
     const total = normalizedValues.reduce((sum, v) => sum + v, 0)
     const chartHeight = 140
     const hasNever = event.type === 'by_year' && spec.labels[spec.labels.length - 1] === 'Never'
@@ -927,6 +928,14 @@ function DistributionEditor({
     const points = pointsFromValues(displayValues, chartHeight, 100)
     const linePath = buildStepPath(points)
     const areaPath = `${linePath} L 100 ${chartHeight - 8} L 0 ${chartHeight - 8} Z`
+    const totalRaw = displayValues.reduce((sum, v) => sum + v, 0)
+    const axisTicks = [100, 75, 50, 25, 0]
+    const axisLabels = axisTicks.map((tick) => {
+        if (totalRaw <= 0) return "0%"
+        const scaled = Math.round((tick / totalRaw) * 100)
+        const clamped = Math.max(0, Math.min(100, scaled))
+        return `${clamped}%`
+    })
 
     const updateFromPointer = (clientX: number, clientY: number) => {
         const container = chartRef.current
@@ -938,6 +947,21 @@ function DistributionEditor({
         const yRatio = Math.min(1, Math.max(0, (rect.bottom - clientY) / rect.height))
         const targetValue = Math.round(yRatio * 100)
         onRawChange(applyBrush(rawValues, index, targetValue))
+    }
+
+    const updateHoverFromPointer = (clientX: number, clientY: number) => {
+        const container = chartRef.current
+        if (!container) return
+        const rect = container.getBoundingClientRect()
+        const xRatio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+        const pointerY = clientY - rect.top
+        const lineY = getLineYAtRatio(displayValues, xRatio, chartHeight)
+        if (Math.abs(pointerY - lineY) > 20) {
+            setHoveredIndex(null)
+            return
+        }
+        const displayIndex = Math.round(xRatio * Math.max(displayOrder.length - 1, 1))
+        setHoveredIndex(displayIndex)
     }
 
     return (
@@ -965,71 +989,87 @@ function DistributionEditor({
                         </button>
                     )}
                     <div
-                        ref={chartRef}
                         className={cn("relative h-40 rounded-xl border border-dashed border-stone-200 bg-white/70", isDragging && "ring-2 ring-stone-300")}
-                        onPointerDown={(e) => {
-                            const container = chartRef.current
-                            if (!container) return
-                        const rect = container.getBoundingClientRect()
-                        const xRatio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
-                        const pointerY = e.clientY - rect.top
-                        const lineY = getLineYAtRatio(displayValues, xRatio, chartHeight)
-                        if (Math.abs(pointerY - lineY) > 24) return
-                        const displayIndex = Math.round(xRatio * Math.max(displayOrder.length - 1, 1))
-                        activeIndexRef.current = displayIndex
-                        container.setPointerCapture(e.pointerId)
-                        setIsDragging(true)
-                        updateFromPointer(e.clientX, e.clientY)
-                    }}
-                        onPointerMove={(e) => {
-                            if (!isDragging) return
-                            updateFromPointer(e.clientX, e.clientY)
-                        }}
-                        onPointerUp={(e) => {
-                            const container = chartRef.current
-                            if (container) container.releasePointerCapture(e.pointerId)
-                            setIsDragging(false)
-                            activeIndexRef.current = null
-                        }}
-                        onPointerLeave={() => {
-                            setIsDragging(false)
-                            activeIndexRef.current = null
-                        }}
                     >
-                        <svg
-                            viewBox={`0 0 100 ${chartHeight}`}
-                            preserveAspectRatio="none"
-                            className="w-full h-full"
-                        >
-                            <defs>
-                                <linearGradient id="editorFill" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="#1c1917" stopOpacity="0.25" />
-                                    <stop offset="100%" stopColor="#1c1917" stopOpacity="0.05" />
-                                </linearGradient>
-                            </defs>
-                            <path d={areaPath} fill="url(#editorFill)" />
-                            <path
-                                d={linePath}
-                                fill="none"
-                                stroke="#1c1917"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                vectorEffect="non-scaling-stroke"
-                                shapeRendering="geometricPrecision"
-                            />
-                        </svg>
-                        <div className="absolute inset-0 pointer-events-none">
-                            {points.map((point, idx) => (
-                                <span
-                                    key={`${idx}-${point.x.toFixed(2)}`}
-                                    className="absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-stone-900"
-                                    style={{
-                                        left: `${point.x}%`,
-                                        top: `${(point.y / chartHeight) * 100}%`
-                                    }}
-                                />
+                        <div className="absolute inset-y-2 left-2 flex flex-col justify-between text-[11px] font-semibold text-stone-500">
+                            {axisLabels.map((label) => (
+                                <span key={label}>{label}</span>
                             ))}
+                        </div>
+                        <div
+                            ref={chartRef}
+                            className="absolute inset-y-0 left-10 right-0 group"
+                            onPointerDown={(e) => {
+                                const container = chartRef.current
+                                if (!container) return
+                                const rect = container.getBoundingClientRect()
+                                const xRatio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+                                const pointerY = e.clientY - rect.top
+                                const lineY = getLineYAtRatio(displayValues, xRatio, chartHeight)
+                                if (Math.abs(pointerY - lineY) > 24) return
+                                const displayIndex = Math.round(xRatio * Math.max(displayOrder.length - 1, 1))
+                                activeIndexRef.current = displayIndex
+                                container.setPointerCapture(e.pointerId)
+                                setIsDragging(true)
+                                updateFromPointer(e.clientX, e.clientY)
+                            }}
+                            onPointerMove={(e) => {
+                                if (isDragging) {
+                                    updateFromPointer(e.clientX, e.clientY)
+                                } else {
+                                    updateHoverFromPointer(e.clientX, e.clientY)
+                                }
+                            }}
+                            onPointerUp={(e) => {
+                                const container = chartRef.current
+                                if (container) container.releasePointerCapture(e.pointerId)
+                                setIsDragging(false)
+                                activeIndexRef.current = null
+                            }}
+                            onPointerLeave={() => {
+                                setIsDragging(false)
+                                activeIndexRef.current = null
+                                setHoveredIndex(null)
+                            }}
+                        >
+                            <svg
+                                viewBox={`0 0 100 ${chartHeight}`}
+                                preserveAspectRatio="none"
+                                className="w-full h-full"
+                            >
+                                <defs>
+                                    <linearGradient id="editorFill" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#1c1917" stopOpacity="0.25" />
+                                        <stop offset="100%" stopColor="#1c1917" stopOpacity="0.05" />
+                                    </linearGradient>
+                                </defs>
+                                <path d={areaPath} fill="url(#editorFill)" />
+                                <path
+                                    d={linePath}
+                                    fill="none"
+                                    stroke="#1c1917"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    vectorEffect="non-scaling-stroke"
+                                    shapeRendering="geometricPrecision"
+                                />
+                            </svg>
+                            <div className="absolute inset-0 pointer-events-none">
+                                {points.map((point, idx) => (
+                                    <span
+                                        key={`${idx}-${point.x.toFixed(2)}`}
+                                        className={cn(
+                                            "absolute h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-stone-900 transition-transform duration-150",
+                                            hoveredIndex === idx ? "scale-150" : "scale-100"
+                                        )}
+                                        style={{
+                                            left: `${point.x}%`,
+                                            top: `${(point.y / chartHeight) * 100}%`
+                                        }}
+                                    />
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -165,7 +165,7 @@ export function ForecastingView({ year }: { year: number }) {
                                 viewMode === 'cards' ? "bg-stone-800 text-white shadow-md" : "bg-white text-stone-500 hover:bg-stone-50"
                             )}
                         >
-                            <LayoutGrid className="w-4 h-4" /> Cards
+                            <LayoutGrid className="w-4 h-4" /> Predictions
                         </button>
                         <button
                             onClick={() => setViewMode('summary')}
