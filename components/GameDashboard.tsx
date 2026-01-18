@@ -9,7 +9,6 @@ import { ForecastingView } from "./ForecastingView"
 import { BettingView } from "./BettingView"
 import { ResultsView } from "./ResultsView"
 import { AdminControls } from "./AdminControls"
-import { CrowdToggle } from "./CrowdToggle"
 
 type GamePhase = 'forecasting' | 'betting' | 'results' | 'complete'
 type GameYearRow = { year: number; status: GamePhase; family_id: string }
@@ -82,9 +81,7 @@ export function GameDashboard({ year, onBack }: { year: number, onBack: () => vo
                             <span className="text-xs text-stone-400 font-medium">{user?.username}</span>
                         </div>
                     </div>
-                    <div className="justify-self-center">
-                        <CrowdToggle />
-                    </div>
+                    <div className="justify-self-center" />
                     <div className="flex items-center gap-2 justify-self-end">
                         <Button variant="ghost" size="sm" onClick={logout} className="text-stone-400 hover:text-red-500">
                             <LogOut className="h-4 w-4" />

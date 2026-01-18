@@ -16,6 +16,8 @@ type User = {
     family_id: string | null
 }
 
+export const MAX_USERNAME_LENGTH = 24
+
 interface UserContextType {
     user: User | null
     family: Family | null
@@ -227,6 +229,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
             const cleanedUsername = cleanUsername(username)
             if (!cleanedUsername) {
                 return { success: false, error: "Please enter your name" }
+            }
+            if (cleanedUsername.length > MAX_USERNAME_LENGTH) {
+                return { success: false, error: `Name must be ${MAX_USERNAME_LENGTH} characters or fewer` }
             }
 
             // Find the family

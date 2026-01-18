@@ -20,8 +20,8 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-stone-50 p-4 relative overflow-hidden">
         {/* Background Gradients - Subtle Pastel */}
-        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-rose-100/50 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-green-100/50 rounded-full blur-[120px]" />
+        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-rose-100/50 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-green-100/50 rounded-full blur-[120px] pointer-events-none" />
 
         <LoginForm />
       </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from "react"
-import { useUser } from "@/contexts/UserContext"
+import { MAX_USERNAME_LENGTH, useUser } from "@/contexts/UserContext"
 import { Button } from "./ui/Button"
 import { Input } from "./ui/Input"
 import { Sparkles, ChevronDown } from "lucide-react"
@@ -174,6 +174,7 @@ export function LoginForm() {
                             onChange={(e) => setUsername(e.target.value)}
                             disabled={isLoading || selectedFamilyId === "guest"}
                             className="text-center text-lg h-12"
+                            maxLength={MAX_USERNAME_LENGTH}
                             autoFocus
                         />
                     </div>

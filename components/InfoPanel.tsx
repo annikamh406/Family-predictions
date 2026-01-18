@@ -147,6 +147,25 @@ export function InfoPanel() {
                                     Use the stats tab for deeper comparisons.
                                 </p>
                             </div>
+                            <div>
+                                <div className="font-semibold text-stone-800">Crowd Forecasting</div>
+                                <p>
+                                    A global forecasting hub that everyone can participate in. Anyone can create an event, and everyone
+                                    submits a probability distribution instead of a single number. The aggregate forecast is shown as a
+                                    density curve, and snapshots let you scroll back in time to see how the crowd evolved.
+                                </p>
+                                <div className="mt-3 space-y-2">
+                                    <div className="font-semibold text-stone-800">Event types</div>
+                                    <p>
+                                        <strong>Year of occurrence</strong>: forecast which year it happens, including a &quot;Never&quot; option.
+                                        You can extend the timeline by adding earlier or later years.
+                                    </p>
+                                    <p>
+                                        <strong>By deadline</strong>: forecast your probability distribution over 0–100% by the specified date.
+                                        A 0% bin corresponds to &quot;never by the deadline.&quot;
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         <div className="space-y-3 text-sm text-stone-700">
