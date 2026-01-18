@@ -36,6 +36,29 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined)
 
 const cleanUsername = (value: string) => value.trim().replace(/\s+/g, " ")
+const USER_ID_KEY = 'prediction_game_user_id'
+const FAMILY_ID_KEY = 'prediction_game_family_id'
+
+const getStoredValue = (key: string) => {
+    if (typeof window === 'undefined') return null
+    return window.sessionStorage.getItem(key)
+}
+
+const setStoredValue = (key: string, value: string) => {
+    if (typeof window === 'undefined') return
+    window.sessionStorage.setItem(key, value)
+}
+
+const removeStoredValue = (key: string) => {
+    if (typeof window === 'undefined') return
+    window.sessionStorage.removeItem(key)
+}
+
+const clearLegacyStoredValues = () => {
+    if (typeof window === 'undefined') return
+    window.localStorage.removeItem(USER_ID_KEY)
+    window.localStorage.removeItem(FAMILY_ID_KEY)
+}
 
 export function UserProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
@@ -55,8 +78,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         refreshAdminPin()
 
         // Check localStorage on mount
-        const storedUserId = localStorage.getItem('prediction_game_user_id')
-        const storedFamilyId = localStorage.getItem('prediction_game_family_id')
+        clearLegacyStoredValues()
+        const storedUserId = getStoredValue(USER_ID_KEY)
+        const storedFamilyId = getStoredValue(FAMILY_ID_KEY)
 
         if (storedUserId && storedFamilyId) {
             if (storedUserId === 'guest') {
@@ -77,7 +101,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         if (isGuest && !viewingFamily && families.length > 0) {
             setViewingFamily(families[0])
-            localStorage.setItem('prediction_game_family_id', families[0].id)
+            setStoredValue(FAMILY_ID_KEY, families[0].id)
         }
     }, [isGuest, viewingFamily, families])
 
@@ -170,8 +194,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (userRes.data && !userRes.error) {
             setUser(userRes.data)
         } else {
-            localStorage.removeItem('prediction_game_user_id')
-            localStorage.removeItem('prediction_game_family_id')
+            removeStoredValue(USER_ID_KEY)
+            removeStoredValue(FAMILY_ID_KEY)
             setUser(null)
         }
 
@@ -191,11 +215,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
                 setFamily(null)
                 setViewingFamily(defaultFamily)
                 setIsGuest(true)
-                localStorage.setItem('prediction_game_user_id', 'guest')
+                setStoredValue(USER_ID_KEY, 'guest')
                 if (defaultFamily) {
-                    localStorage.setItem('prediction_game_family_id', defaultFamily.id)
+                    setStoredValue(FAMILY_ID_KEY, defaultFamily.id)
                 } else {
-                    localStorage.removeItem('prediction_game_family_id')
+                    removeStoredValue(FAMILY_ID_KEY)
                 }
                 return { success: true }
             }
@@ -233,8 +257,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     setFamily(familyData)
                     setViewingFamily(familyData)
                     setIsGuest(false)
-                    localStorage.setItem('prediction_game_user_id', existingUser.id)
-                    localStorage.setItem('prediction_game_family_id', familyData.id)
+                    setStoredValue(USER_ID_KEY, existingUser.id)
+                    setStoredValue(FAMILY_ID_KEY, familyData.id)
                     return { success: true }
                 } else {
                 // Create new user in this family
@@ -256,8 +280,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
                     setFamily(familyData)
                     setViewingFamily(familyData)
                     setIsGuest(false)
-                    localStorage.setItem('prediction_game_user_id', newUser.id)
-                    localStorage.setItem('prediction_game_family_id', familyData.id)
+                    setStoredValue(USER_ID_KEY, newUser.id)
+                    setStoredValue(FAMILY_ID_KEY, familyData.id)
                     localStorage.setItem('prediction_game_show_help', '1')
                     if (typeof window !== 'undefined') {
                         window.dispatchEvent(new Event('prediction-game-show-help'))
@@ -277,8 +301,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setFamily(null)
         setViewingFamily(null)
         setIsGuest(false)
-        localStorage.removeItem('prediction_game_user_id')
-        localStorage.removeItem('prediction_game_family_id')
+        removeStoredValue(USER_ID_KEY)
+        removeStoredValue(FAMILY_ID_KEY)
+        clearLegacyStoredValues()
     }
 
     const switchFamily = (familyId: string) => {
@@ -286,7 +311,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (targetFamily) {
             setViewingFamily(targetFamily)
             if (isGuest) {
-                localStorage.setItem('prediction_game_family_id', targetFamily.id)
+                setStoredValue(FAMILY_ID_KEY, targetFamily.id)
             }
         }
     }
