@@ -123,7 +123,8 @@ export function CrowdForecasting() {
         const baseValues = Array.isArray(existing) && existing.length === spec.bucketCount
             ? existing
             : buildDefaultDistribution(event)
-        setRawEditorValues(normalizeDistribution(baseValues))
+        const sanitized = stripPastYears(event, baseValues)
+        setRawEditorValues(normalizeDistribution(sanitized))
         hasLoadedRef.current = true
     }
 
@@ -152,6 +153,18 @@ export function CrowdForecasting() {
         if (newEvent.type === 'by_deadline' && !newEvent.target_date) {
             alert("Please choose a deadline date.")
             return
+        }
+        if (newEvent.type === 'by_year') {
+            const minYear = newEvent.min_year ? Number(newEvent.min_year) : null
+            const maxYear = newEvent.max_year ? Number(newEvent.max_year) : null
+            if ((minYear !== null && minYear < currentYear) || (maxYear !== null && maxYear < currentYear)) {
+                alert(`Years must be ${currentYear} or later.`)
+                return
+            }
+            if (minYear !== null && maxYear !== null && maxYear < minYear) {
+                alert("Max year must be greater than or equal to min year.")
+                return
+            }
         }
         setIsSavingEvent(true)
 
@@ -240,6 +253,18 @@ export function CrowdForecasting() {
             alert("Please choose a deadline date.")
             return
         }
+        if (editEvent.type === 'by_year') {
+            const minYear = editEvent.min_year ? Number(editEvent.min_year) : null
+            const maxYear = editEvent.max_year ? Number(editEvent.max_year) : null
+            if ((minYear !== null && minYear < currentYear) || (maxYear !== null && maxYear < currentYear)) {
+                alert(`Years must be ${currentYear} or later.`)
+                return
+            }
+            if (minYear !== null && maxYear !== null && maxYear < minYear) {
+                alert("Max year must be greater than or equal to min year.")
+                return
+            }
+        }
         setIsSavingEvent(true)
         const payload: Partial<CrowdEvent> = {
             title: editEvent.title.trim(),
@@ -306,6 +331,18 @@ export function CrowdForecasting() {
     }
 
     const currentYear = useMemo(() => new Date().getFullYear(), [])
+    const stripPastYears = (event: CrowdEvent, values: number[]) => {
+        if (event.type !== 'by_year') return values
+        const spec = getBinSpec(event)
+        return values.map((value, idx) => {
+            const label = spec.labels[idx]
+            const year = Number(label)
+            if (!Number.isNaN(year) && year < currentYear) {
+                return 0
+            }
+            return value
+        })
+    }
     const canExtendPast = useMemo(() => {
         if (!selectedEvent || selectedEvent.type !== 'by_year') return false
         const minYear = selectedEvent.min_year ?? currentYear
@@ -340,7 +377,13 @@ export function CrowdForecasting() {
 
     const handleSubmitForecast = async () => {
         if (!selectedEvent || !user || isGuest) return
-        const normalized = normalizeByScaling(rawEditorValues)
+        const sanitizedRaw = stripPastYears(selectedEvent, rawEditorValues)
+        const arraysMatch = sanitizedRaw.length === rawEditorValues.length &&
+            sanitizedRaw.every((value, idx) => value === rawEditorValues[idx])
+        if (!arraysMatch) {
+            setRawEditorValues(sanitizedRaw)
+        }
+        const normalized = normalizeByScaling(sanitizedRaw)
         setIsSavingForecast(true)
 
         const distribution = normalized
@@ -433,12 +476,13 @@ export function CrowdForecasting() {
     const selectedSnapshotLabel = snapshotOptions[selectedSnapshotIndex]?.label ?? 'Latest (live)'
     const chartValues = useMemo(() => {
         if (!selectedEvent) return []
+        const sanitize = (values: number[]) => normalizeDistribution(stripPastYears(selectedEvent, values))
         if (selectedSnapshot === 'latest') {
-            return aggregateDistribution && aggregateDistribution.length > 0 ? aggregateDistribution : []
+            return aggregateDistribution && aggregateDistribution.length > 0 ? sanitize(aggregateDistribution) : []
         }
         const target = snapshots.find(s => s.snapshot_at === selectedSnapshot)
-        return target?.distribution || []
-    }, [selectedSnapshot, snapshots, aggregateDistribution, selectedEvent?.id])
+        return target?.distribution ? sanitize(target.distribution) : []
+    }, [selectedSnapshot, snapshots, aggregateDistribution, selectedEvent?.id, currentYear])
 
     useEffect(() => {
         if (!selectedEvent || !user || isGuest) return
@@ -807,10 +851,8 @@ function DistributionChart({ event, values }: { event: CrowdEvent; values: numbe
         )
     }
 
-    const hasNever = event.type === 'by_year' && spec.labels[spec.labels.length - 1] === 'Never'
-    const displayOrder = hasNever
-        ? [spec.labels.length - 1, ...Array.from({ length: spec.labels.length - 1 }, (_, idx) => idx)]
-        : spec.labels.map((_, idx) => idx)
+    const currentYear = new Date().getFullYear()
+    const displayOrder = buildDisplayOrder(event, spec.labels, currentYear)
     const displayValues = mapValues(values, displayOrder)
     const maxValue = Math.max(...displayValues, 1)
     const chartHeight = 140
@@ -915,12 +957,22 @@ function DistributionEditor({
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
     const total = normalizedValues.reduce((sum, v) => sum + v, 0)
     const chartHeight = 140
-    const hasNever = event.type === 'by_year' && spec.labels[spec.labels.length - 1] === 'Never'
-    const displayOrder = useMemo(() => {
-        if (!hasNever) return spec.labels.map((_, idx) => idx)
-        const neverIndex = spec.labels.length - 1
-        return [neverIndex, ...Array.from({ length: spec.labels.length - 1 }, (_, idx) => idx)]
-    }, [hasNever, spec.labels])
+    const currentYear = useMemo(() => new Date().getFullYear(), [])
+    const lockedIndexes = useMemo(() => {
+        if (event.type !== 'by_year') return new Set<number>()
+        const locked = new Set<number>()
+        spec.labels.forEach((label, idx) => {
+            const year = Number(label)
+            if (!Number.isNaN(year) && year < currentYear) {
+                locked.add(idx)
+            }
+        })
+        return locked
+    }, [event.type, spec.labels, currentYear])
+    const displayOrder = useMemo(
+        () => buildDisplayOrder(event, spec.labels, currentYear),
+        [event.type, spec.labels, currentYear]
+    )
 
     useEffect(() => {
         if (activeInputIndex !== null) return
@@ -955,6 +1007,7 @@ function DistributionEditor({
         const xRatio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
         const displayIndex = activeIndexRef.current ?? Math.round(xRatio * Math.max(displayOrder.length - 1, 1))
         const index = displayOrder[displayIndex] ?? displayIndex
+        if (lockedIndexes.has(index)) return
         const yRatio = Math.min(1, Math.max(0, (rect.bottom - clientY) / rect.height))
         const targetValue = Math.round(yRatio * 100)
         onRawChange(applyBrush(rawValues, index, targetValue))
@@ -1024,6 +1077,8 @@ function DistributionEditor({
                                 const lineY = getLineYAtRatio(displayValues, xRatio, chartHeight)
                                 if (Math.abs(pointerY - lineY) > 24) return
                                 const displayIndex = Math.round(xRatio * Math.max(displayOrder.length - 1, 1))
+                                const rawIndex = displayOrder[displayIndex] ?? displayIndex
+                                if (lockedIndexes.has(rawIndex)) return
                                 activeIndexRef.current = displayIndex
                                 container.setPointerCapture(e.pointerId)
                                 setIsDragging(true)
@@ -1107,9 +1162,14 @@ function DistributionEditor({
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                {displayOrder.map((rawIndex) => (
-                    <label key={spec.labels[rawIndex]} className="flex items-center justify-between gap-2 bg-white border border-stone-200 rounded-lg px-2 py-1">
-                        <span className="truncate text-stone-600">{spec.labels[rawIndex]}</span>
+                    {displayOrder.map((rawIndex) => {
+                        const isLocked = lockedIndexes.has(rawIndex)
+                        return (
+                        <label key={spec.labels[rawIndex]} className={cn(
+                            "flex items-center justify-between gap-2 rounded-lg px-2 py-1 border",
+                            isLocked ? "bg-stone-50 border-stone-100 text-stone-400" : "bg-white border-stone-200"
+                        )}>
+                        <span className={cn("truncate", isLocked ? "text-stone-400" : "text-stone-600")}>{spec.labels[rawIndex]}</span>
                         <input
                             type="number"
                             min={0}
@@ -1123,11 +1183,13 @@ function DistributionEditor({
                                     return next
                                 })
                                 if (raw.trim() === "") return
+                                if (isLocked) return
                                 const nextValue = Math.max(0, Math.min(100, Math.round(Number(raw) || 0)))
                                 const next = setRawForNormalizedTarget(rawValues, rawIndex, nextValue)
                                 onRawChange(next)
                             }}
                             onFocus={(e) => {
+                                if (isLocked) return
                                 setActiveInputIndex(rawIndex)
                                 e.target.select()
                             }}
@@ -1141,10 +1203,17 @@ function DistributionEditor({
                                     return next
                                 })
                             }}
-                            className="w-16 rounded-md border border-stone-200 bg-white text-right text-stone-700"
+                            disabled={isLocked}
+                            className={cn(
+                                "w-16 rounded-md text-right",
+                                isLocked
+                                    ? "border border-stone-100 bg-stone-50 text-stone-400 cursor-not-allowed"
+                                    : "border border-stone-200 bg-white text-stone-700"
+                            )}
                         />
                     </label>
-                ))}
+                    )
+                })}
             </div>
         </div>
     )
@@ -1163,6 +1232,28 @@ function pointsFromValues(values: number[], chartHeight: number, maxValueOverrid
 
 function mapValues(values: number[], order: number[]) {
     return order.map(index => values[index] ?? 0)
+}
+
+function buildDisplayOrder(event: CrowdEvent, labels: string[], currentYear: number) {
+    if (event.type !== 'by_year') {
+        return labels.map((_, idx) => idx)
+    }
+    const futureIndexes: number[] = []
+    let neverIndex: number | null = null
+    labels.forEach((label, idx) => {
+        if (label === 'Never') {
+            neverIndex = idx
+            return
+        }
+        const year = Number(label)
+        if (!Number.isNaN(year) && year >= currentYear) {
+            futureIndexes.push(idx)
+        }
+    })
+    if (neverIndex !== null) {
+        return [neverIndex, ...futureIndexes]
+    }
+    return futureIndexes
 }
 
 function getLineYAtRatio(values: number[], ratio: number, chartHeight: number) {
