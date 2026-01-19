@@ -1013,7 +1013,7 @@ function DistributionEditor({
                         </div>
                         <div
                             ref={chartRef}
-                            className="absolute inset-y-0 left-10 right-0 group"
+                            className="absolute inset-y-0 left-10 right-0 group touch-none"
                             onPointerDown={(e) => {
                                 const container = chartRef.current
                                 if (!container) return
