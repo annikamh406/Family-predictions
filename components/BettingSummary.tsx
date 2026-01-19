@@ -177,7 +177,7 @@ export function BettingSummary({ year, familyId }: { year: number; familyId?: st
                     )}
                     {predictions.length > 0 && (
                         <tr className="bg-stone-50 border-t-2 border-stone-200">
-                            <td className="px-4 py-3 text-right font-bold text-stone-500 uppercase text-[10px] tracking-wider sticky left-0 bg-stone-50 z-10 border-r border-stone-200">
+                            <td className="px-4 py-3 text-right font-bold text-stone-500 uppercase text-[10px] tracking-wider sticky md:left-0 bg-stone-50 z-10 border-r border-stone-200">
                                 Avg Bet % (Bullishness)
                             </td>
                             {sortedUsers.map(u => {
