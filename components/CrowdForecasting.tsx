@@ -490,6 +490,7 @@ export function CrowdForecasting() {
             hasLoadedRef.current = true
             return
         }
+        if (!userForecast) return
         if (normalizedEditorValues.length === 0) return
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
         saveTimeoutRef.current = setTimeout(() => {
@@ -498,7 +499,7 @@ export function CrowdForecasting() {
         return () => {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
         }
-    }, [normalizedEditorValues, selectedEvent?.id, user?.id, isGuest])
+    }, [normalizedEditorValues, selectedEvent?.id, user?.id, isGuest, userForecast?.id])
 
     return (
         <div className="min-h-screen bg-stone-50 relative selection:bg-stone-200">
@@ -797,7 +798,7 @@ export function CrowdForecasting() {
                                             <span className="text-xs text-stone-400">
                                                 {userForecast?.updated_at
                                                     ? `Saved ${new Date(userForecast.updated_at).toLocaleString()}`
-                                                    : "Total must equal 100%"}
+                                                    : "Not saved yet"}
                                             </span>
                                         )}
                                     </div>
@@ -819,10 +820,25 @@ export function CrowdForecasting() {
                                                 >
                                                     Even Spread
                                                 </Button>
-                                                {isSavingForecast && (
-                                                    <span className="text-xs text-stone-400">Saving…</span>
+                                                {!userForecast ? (
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={handleSubmitForecast}
+                                                        isLoading={isSavingForecast}
+                                                    >
+                                                        Save forecast
+                                                    </Button>
+                                                ) : (
+                                                    isSavingForecast && (
+                                                        <span className="text-xs text-stone-400">Saving…</span>
+                                                    )
                                                 )}
                                             </div>
+                                            {!userForecast && (
+                                                <p className="text-xs text-stone-500">
+                                                    Save once to add your forecast to the crowd aggregate. Autosave takes over after.
+                                                </p>
+                                            )}
                                         </div>
                                     ) : (
                                         <p className="text-sm text-stone-500 mt-3">
