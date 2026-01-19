@@ -175,29 +175,29 @@ export function BettingSummary({ year, familyId }: { year: number; familyId?: st
                     {predictions.length === 0 && (
                         <tr><td colSpan={users.length + 1} className="p-8 text-center text-stone-400">No data found</td></tr>
                     )}
-                </tbody>
-                <tfoot className="bg-stone-50 border-t-2 border-stone-200">
-                    <tr>
-                        <td className="px-4 py-3 text-right font-bold text-stone-500 uppercase text-[10px] tracking-wider sticky left-0 bg-stone-50 z-10 border-r border-stone-200">
-                            Avg Bet % (Bullishness)
-                        </td>
-                        {sortedUsers.map(u => {
-                            const totalProb = predictions.reduce((acc, pred) => {
-                                const val = bets[pred.id]?.[u] ?? 50
-                                return acc + val
-                            }, 0)
-                            const avg = Math.round(totalProb / (predictions.length || 1))
+                    {predictions.length > 0 && (
+                        <tr className="bg-stone-50 border-t-2 border-stone-200">
+                            <td className="px-4 py-3 text-right font-bold text-stone-500 uppercase text-[10px] tracking-wider sticky left-0 bg-stone-50 z-10 border-r border-stone-200">
+                                Avg Bet % (Bullishness)
+                            </td>
+                            {sortedUsers.map(u => {
+                                const totalProb = predictions.reduce((acc, pred) => {
+                                    const val = bets[pred.id]?.[u] ?? 50
+                                    return acc + val
+                                }, 0)
+                                const avg = Math.round(totalProb / (predictions.length || 1))
 
-                            return (
-                                <td key={u} className="px-2 py-3 text-center border-l border-stone-200">
-                                    <span className="font-mono text-xs text-stone-600 bg-stone-200 px-1.5 py-0.5 rounded">
-                                        {avg}%
-                                    </span>
-                                </td>
-                            )
-                        })}
-                    </tr>
-                </tfoot>
+                                return (
+                                    <td key={u} className="px-2 py-3 text-center border-l border-stone-200">
+                                        <span className="font-mono text-xs text-stone-600 bg-stone-200 px-1.5 py-0.5 rounded">
+                                            {avg}%
+                                        </span>
+                                    </td>
+                                )
+                            })}
+                        </tr>
+                    )}
+                </tbody>
             </table>
         </div>
     )
