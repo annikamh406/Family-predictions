@@ -1017,6 +1017,7 @@ function DistributionEditor({
                             onPointerDown={(e) => {
                                 const container = chartRef.current
                                 if (!container) return
+                                e.preventDefault()
                                 const rect = container.getBoundingClientRect()
                                 const xRatio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
                                 const pointerY = e.clientY - rect.top
@@ -1041,10 +1042,14 @@ function DistributionEditor({
                                 setIsDragging(false)
                                 activeIndexRef.current = null
                             }}
-                            onPointerLeave={() => {
+                            onPointerCancel={(e) => {
+                                const container = chartRef.current
+                                if (container) container.releasePointerCapture(e.pointerId)
                                 setIsDragging(false)
                                 activeIndexRef.current = null
-                                setHoveredIndex(null)
+                            }}
+                            onPointerOut={() => {
+                                if (!isDragging) setHoveredIndex(null)
                             }}
                         >
                             <svg
