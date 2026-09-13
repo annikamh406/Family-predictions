@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { Info, X, KeyRound } from "lucide-react"
+import { BrierExplanation } from "./BrierExplanation"
+import { BRIER_START_YEAR } from "@/utils/scoring"
 
 export function InfoPanel() {
     const [isOpen, setIsOpen] = useState(false)
@@ -125,25 +127,15 @@ export function InfoPanel() {
                             <div>
                                 <div className="font-semibold text-stone-800">Results & Scoring</div>
                                 <p>
-                                    When an event happens, score = bet − 50.
-                                    When it doesn’t, score = 50 − bet.
-                                    Scores add up across all predictions.
+                                    The lowest average Brier score wins. Years before {BRIER_START_YEAR} also
+                                    offer an old-scoring toggle to compare the original standings.
                                 </p>
-                                <ExampleCard title="Scoring Example">
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div className="bg-stone-50 rounded-lg p-3 border border-stone-200">
-                                            Bet 80% and it happened → +30 points
-                                        </div>
-                                        <div className="bg-stone-50 rounded-lg p-3 border border-stone-200">
-                                            Bet 20% and it happened → -30 points
-                                        </div>
-                                    </div>
-                                </ExampleCard>
+                                <div className="mt-3"><BrierExplanation /></div>
                             </div>
                             <div>
                                 <div className="font-semibold text-stone-800">Stats & Insights</div>
                                 <p>
-                                    View bullishness vs. points, prediction variability, and category trends.
+                                    View bullishness vs. Brier score, prediction variability, and category trends.
                                     Use the stats tab for deeper comparisons.
                                 </p>
                             </div>

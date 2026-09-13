@@ -6,6 +6,8 @@ import { supabase } from "@/utils/supabase"
 import { Button } from "./ui/Button"
 import { Loader2, Save, Check, AlertCircle, LayoutGrid, Table2 } from "lucide-react"
 import { BettingSummary } from "./BettingSummary"
+import { BrierExplanation } from "./BrierExplanation"
+import { brierScore, formatScore } from "@/utils/scoring"
 import {
     CATEGORY_LABELS,
     CATEGORY_COLORS,
@@ -153,6 +155,11 @@ export function BettingView({ year }: { year: number }) {
                 )}
             </div>
 
+            <details className="rounded-xl border border-stone-200 bg-stone-50 p-4">
+                <summary className="cursor-pointer font-semibold text-sm text-stone-700">How your bets are scored · Brier scoring</summary>
+                <div className="pt-4"><BrierExplanation /></div>
+            </details>
+
             {viewMode === 'summary' || isViewingOtherFamily ? (
                 <BettingSummary year={year} familyId={viewingFamily?.id} />
             ) : (
@@ -205,6 +212,7 @@ export function BettingView({ year }: { year: number }) {
                                     )}
                                     <input
                                         type="range"
+                                        aria-label={`Probability: ${pred.description}`}
                                         min="0"
                                         max="100"
                                         step="5"
@@ -223,6 +231,11 @@ export function BettingView({ year }: { year: number }) {
                                 <div className="flex justify-between text-[10px] text-stone-400 uppercase tracking-widest mt-1">
                                     <span>Impossible</span>
                                     <span>Certain</span>
+                                </div>
+                                <div className="mt-3 text-xs text-stone-600 flex flex-wrap justify-between gap-2">
+                                    <span>If it happens: {formatScore(brierScore(bets[pred.id] ?? 50, true))}</span>
+                                    <span>If it doesn’t: {formatScore(brierScore(bets[pred.id] ?? 50, false))}</span>
+                                    <span className="w-full text-stone-500">Brier score · Lower is better</span>
                                 </div>
                             </div>
                         </div>

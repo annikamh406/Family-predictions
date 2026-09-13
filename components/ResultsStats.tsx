@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useId } from "react"
 import { supabase } from "@/utils/supabase"
 import { Loader2 } from "lucide-react"
 import { BOT_NAMES } from "@/utils/bots"
 import { CATEGORY_LABELS, PredictionCategory } from "@/utils/predictions"
 import { cn } from "@/utils/cn"
+import { calculateStandings, formatScore, ScoringRule } from "@/utils/scoring"
 
 type Prediction = {
     id: string
@@ -36,7 +37,7 @@ type VariabilityEntry = {
 
 const BOT_VALUES = Object.values(BOT_NAMES)
 
-export function ResultsStats({ year, familyId }: { year: number; familyId?: string }) {
+export function ResultsStats({ year, familyId, scoringRule = 'brier' }: { year: number; familyId?: string; scoringRule?: ScoringRule }) {
     const [predictions, setPredictions] = useState<Prediction[]>([])
     const [bets, setBets] = useState<Bet[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -71,26 +72,13 @@ export function ResultsStats({ year, familyId }: { year: number; familyId?: stri
 
     const { userPoints, humanPoints, highestVar, lowestVar, categoryStats } = useMemo(() => {
         const humanBets = bets.filter(b => !BOT_VALUES.includes(b.user?.username))
-        const betsByUser: Record<string, number[]> = {}
-        const pointsByUser: Record<string, number> = {}
-
-        bets.forEach(bet => {
-            const username = bet.user?.username || "Unknown"
-            if (!betsByUser[username]) betsByUser[username] = []
-            betsByUser[username].push(bet.probability)
-
-            const pred = predictions.find(p => p.id === bet.prediction_id)
-            if (!pred || pred.did_happen === null) return
-
-            const points = pred.did_happen ? bet.probability - 50 : 50 - bet.probability
-            pointsByUser[username] = (pointsByUser[username] || 0) + points
-        })
-
-        const userPoints: UserPoint[] = Object.entries(betsByUser).map(([username, values]) => ({
-            username,
-            bullishness: Math.round(values.reduce((a, b) => a + b, 0) / values.length),
-            points: pointsByUser[username] || 0
-        }))
+        const userPoints: UserPoint[] = calculateStandings(predictions, bets, scoringRule)
+            .filter(standing => standing.score !== null)
+            .map(standing => ({
+                username: standing.username,
+                bullishness: Math.round(standing.bullishness),
+                points: standing.score!,
+            }))
 
         const variability: VariabilityEntry[] = predictions.map(pred => {
             const predBets = humanBets.filter(b => b.prediction_id === pred.id)
@@ -113,13 +101,7 @@ export function ResultsStats({ year, familyId }: { year: number; familyId?: stri
         }).filter(entry => entry.values.length > 1)
 
         const sortedVar = [...variability].sort((a, b) => b.stdev - a.stdev)
-        const humanPoints: UserPoint[] = Object.entries(betsByUser)
-            .filter(([username]) => !BOT_VALUES.includes(username))
-            .map(([username, values]) => ({
-                username,
-                bullishness: Math.round(values.reduce((a, b) => a + b, 0) / values.length),
-                points: pointsByUser[username] || 0
-            }))
+        const humanPoints = userPoints.filter(point => !BOT_VALUES.includes(point.username))
 
         const categoryStats = Object.keys(CATEGORY_LABELS).map((category) => {
             const catPreds = predictions.filter(pred => pred.category === category)
@@ -145,7 +127,7 @@ export function ResultsStats({ year, familyId }: { year: number; familyId?: stri
             lowestVar: sortedVar[sortedVar.length - 1] || null,
             categoryStats
         }
-    }, [bets, predictions])
+    }, [bets, predictions, scoringRule])
 
     if (isLoading) {
         return <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-stone-300" /></div>
@@ -160,13 +142,13 @@ export function ResultsStats({ year, familyId }: { year: number; familyId?: stri
 
             <div className="bg-white rounded-2xl border border-stone-200 shadow-sm p-5 space-y-4">
                 <div>
-                    <h3 className="text-lg font-bold text-stone-800">Bullishness vs Points</h3>
-                    <p className="text-sm text-stone-500">Average bet (%) vs total points (includes bots).</p>
+                    <h3 className="text-lg font-bold text-stone-800">Bullishness vs {scoringRule === 'brier' ? 'Brier Score' : 'Points'}</h3>
+                    <p className="text-sm text-stone-500">Average bet (%) vs {scoringRule === 'brier' ? 'average Brier score (lower is better)' : 'total points (higher is better)'} (includes bots).</p>
                 </div>
                 {userPoints.length === 0 ? (
                     <div className="text-sm text-stone-400">No completed bets yet.</div>
                 ) : (
-                    <ScatterPlot points={userPoints} humanPoints={humanPoints} />
+                    <ScatterPlot points={userPoints} humanPoints={humanPoints} scoringRule={scoringRule} />
                 )}
             </div>
 
@@ -241,10 +223,12 @@ function VariabilityCard({ title, entry }: { title: string; entry: VariabilityEn
     )
 }
 
-function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints: UserPoint[] }) {
+function ScatterPlot({ points, humanPoints, scoringRule }: { points: UserPoint[]; humanPoints: UserPoint[]; scoringRule: ScoringRule }) {
     const width = 520
     const height = 260
     const padding = 32
+    const leftPadding = 68
+    const plotClipId = useId()
     const [isZoomed, setIsZoomed] = useState(false)
     const [hoverPoint, setHoverPoint] = useState<{ point: UserPoint; x: number; y: number } | null>(null)
     const [isTouch, setIsTouch] = useState(false)
@@ -265,7 +249,7 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
     const xToSvg = (value: number) => {
         const range = maxX - minX || 1
         const normalized = (value - minX) / range
-        return padding + normalized * (width - padding * 2)
+        return leftPadding + normalized * (width - leftPadding - padding)
     }
 
     const humanLine = getRegressionLine(humanPoints)
@@ -299,10 +283,10 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
                 className="w-full min-w-[420px]"
                 onTouchStart={() => setIsTouch(true)}
             >
-                <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e7e5e4" />
-                <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e7e5e4" />
+                <line x1={leftPadding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#e7e5e4" />
+                <line x1={leftPadding} y1={padding} x2={leftPadding} y2={height - padding} stroke="#e7e5e4" />
                 <line
-                    x1={padding}
+                    x1={leftPadding}
                     y1={yToSvg(0)}
                     x2={width - padding}
                     y2={yToSvg(0)}
@@ -310,10 +294,10 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
                     strokeDasharray="4 4"
                 />
 
-                <text x={padding} y={height - 10} className="fill-stone-500 text-[14px]">{Math.round(minX)}%</text>
+                <text x={leftPadding} y={height - 10} className="fill-stone-500 text-[14px]">{Math.round(minX)}%</text>
                 <text x={width - padding - 16} y={height - 10} className="fill-stone-500 text-[14px]">{Math.round(maxX)}%</text>
-                <text x={8} y={padding + 4} className="fill-stone-500 text-[14px]">{maxY}</text>
-                <text x={8} y={height - padding} className="fill-stone-500 text-[14px]">{minY}</text>
+                <text x={leftPadding - 8} textAnchor="end" y={padding + 4} className="fill-stone-500 text-[12px]">{formatScore(maxY, scoringRule)}</text>
+                <text x={leftPadding - 8} textAnchor="end" y={height - padding} className="fill-stone-500 text-[12px]">{formatScore(minY, scoringRule)}</text>
                 <text x={width / 2} y={height - 2} className="fill-stone-600 text-[14px]" textAnchor="middle">
                     Bullishness (Avg Bet %)
                 </text>
@@ -324,9 +308,15 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
                     textAnchor="middle"
                     transform={`rotate(-90 10 ${height / 2})`}
                 >
-                    Total Points
+                    {scoringRule === 'brier' ? 'Average Brier score ↓' : 'Total Points'}
                 </text>
 
+                <defs>
+                    <clipPath id={plotClipId}>
+                        <rect x={leftPadding} y={padding} width={width - leftPadding - padding} height={height - padding * 2} />
+                    </clipPath>
+                </defs>
+                <g clipPath={`url(#${plotClipId})`}>
                 {allLine && (
                     <line
                         x1={xToSvg(lineX1)}
@@ -348,6 +338,8 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
                         strokeDasharray="6 4"
                     />
                 )}
+
+                </g>
 
                 {points.map(point => {
                     const x = xToSvg(point.bullishness)
@@ -385,7 +377,7 @@ function ScatterPlot({ points, humanPoints }: { points: UserPoint[]; humanPoints
                 })}
                 {hoverPoint && (
                     (() => {
-                        const label = `${hoverPoint.point.username}: ${hoverPoint.point.bullishness}% • ${hoverPoint.point.points}`
+                        const label = `${hoverPoint.point.username}: ${hoverPoint.point.bullishness}% • ${formatScore(hoverPoint.point.points, scoringRule)}`
                         const labelWidth = Math.max(120, label.length * 6)
                         const labelHeight = 18
                         const xPos = Math.min(

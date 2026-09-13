@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useUser } from "@/contexts/UserContext"
 import { supabase } from "@/utils/supabase"
-import { Button } from "./ui/Button"
-import { Loader2, Trophy, Medal, Info, Bot, Lock, LayoutGrid, Table2 } from "lucide-react"
+import { Loader2, Trophy, Medal, Bot, Lock, LayoutGrid, Table2 } from "lucide-react"
 import { cn } from "@/utils/cn"
 import { ResultsSummary } from "./ResultsSummary"
 import { ResultsStats } from "./ResultsStats"
@@ -16,6 +15,7 @@ import {
     PredictionCategory
 } from "@/utils/predictions"
 import { BOT_NAMES, generateBotBets } from "@/utils/bots"
+import { calculateStandings, canCompareLegacyScoring, formatScore, rankStandings, ScoringRule } from "@/utils/scoring"
 
 type Prediction = {
     id: string
@@ -32,11 +32,6 @@ type Bet = {
     user: { username: string }
 }
 
-type Score = {
-    username: string
-    score: number
-}
-
 type PredictionStats = {
     avg: number
     min: number
@@ -45,10 +40,12 @@ type PredictionStats = {
 }
 
 export function ResultsView({ year, isLocked = false }: { year: number, isLocked?: boolean }) {
-    const { user, viewingFamily, isViewingOtherFamily } = useUser()
+    const { viewingFamily, isViewingOtherFamily } = useUser()
     const [predictions, setPredictions] = useState<Prediction[]>([])
     const [bets, setBets] = useState<Bet[]>([])
-    const [scores, setScores] = useState<Score[]>([])
+    const [selectedRule, setSelectedRule] = useState<ScoringRule>('brier')
+    const scoringRule = canCompareLegacyScoring(year) ? selectedRule : 'brier'
+    const scores = useMemo(() => calculateStandings(predictions, bets, scoringRule), [predictions, bets, scoringRule])
     const [predStats, setPredStats] = useState<Record<string, PredictionStats>>({})
     const [isLoading, setIsLoading] = useState(true)
     const [showBots, setShowBots] = useState(false)
@@ -84,8 +81,8 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
             setPredictions(sorted)
         }
         if (allBets) {
-            setBets(allBets as any)
-            calculateStats(allBets as any)
+            setBets(allBets)
+            calculateStats(allBets)
         }
         setIsLoading(false)
     }
@@ -141,47 +138,6 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
         setPredStats(finalStats)
     }
 
-    useEffect(() => {
-        if (predictions.length === 0) return
-
-        const userScores: Record<string, number> = {}
-        const participantSet = new Set<string>()
-
-        predictions.forEach(pred => {
-            if (pred.user?.username) {
-                participantSet.add(pred.user.username)
-            }
-        })
-
-        bets.forEach(bet => {
-            const pred = predictions.find(p => p.id === bet.prediction_id)
-            if (!pred) return
-
-            const username = bet.user?.username || 'Unknown'
-            participantSet.add(username)
-
-            if (pred.did_happen === null) return
-
-            const outcome = pred.did_happen
-            let points = 0
-
-            if (outcome) {
-                points = bet.probability - 50
-            } else {
-                points = 50 - bet.probability
-            }
-
-            userScores[username] = (userScores[username] || 0) + points
-        })
-
-        const sortedScores = Array.from(participantSet)
-            .map(username => ({ username, score: userScores[username] || 0 }))
-            .sort((a, b) => b.score - a.score)
-
-        setScores(sortedScores)
-
-    }, [predictions, bets])
-
     const setOutcome = async (predictionId: string, newStatus: boolean | null) => {
         if (isLocked || isViewingOtherFamily) return // Verify lock and family
 
@@ -206,11 +162,9 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
     }
 
     const botValues = Object.values(BOT_NAMES)
-    const displayedScores = showBots
-        ? scores
-        : scores.filter(s => !botValues.includes(s.username))
-
-    const top3 = displayedScores.slice(0, 3)
+    const displayedScores = rankStandings(showBots ? scores : scores.filter(s => !botValues.includes(s.username)), scoringRule)
+    const top3 = displayedScores.filter(s => s.rank !== null && s.rank <= 3)
+    const resolvedCount = predictions.filter(p => typeof p.did_happen === 'boolean').length
 
     if (isLoading) return <div className="p-8 text-center"><Loader2 className="animate-spin w-6 h-6 mx-auto text-stone-300" /></div>
 
@@ -223,50 +177,38 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                 </div>
             )}
 
-            {/* Top 3 Podium */}
+            <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="font-bold text-stone-800">{scoringRule === 'brier' ? 'Brier score · Lower is better' : 'Old scoring · Higher is better'}</h3>
+                    {canCompareLegacyScoring(year) && (
+                        <label className="flex items-center gap-2 text-sm text-stone-600">
+                            Compare scoring
+                            <select value={scoringRule} onChange={e => setSelectedRule(e.target.value as ScoringRule)} className="rounded-lg border border-stone-300 bg-white p-2">
+                                <option value="brier">Brier scoring</option>
+                                <option value="linear">Old scoring</option>
+                            </select>
+                        </label>
+                    )}
+                </div>
+                <p className="text-sm text-stone-600">
+                    {scoringRule === 'brier'
+                        ? 'Your score is the average squared error across resolved predictions: 0 is perfect, 0.25 is always betting 50%, and 1 is the worst possible score. Untouched bets count as 50%; submit at least one bet to join the standings.'
+                        : 'The original rules: bet − 50 if it happened, 50 − bet if it didn’t. Points are added across resolved predictions.'}
+                </p>
+                <p className="text-xs text-stone-500">{resolvedCount} of {predictions.length} predictions resolved. Unresolved predictions do not count. Equal scores share a rank.</p>
+            </div>
+
+            {/* Shared ranks include everyone tied for a podium place. */}
             {top3.length > 0 && (
-                <div className="grid grid-cols-3 gap-4 items-end mb-8 pt-8">
-                    {/* Silver */}
-                    {top3[1] && (
-                        <div className="flex flex-col items-center">
-                            <div className="text-sm font-bold text-stone-500 mb-2 truncate max-w-full text-center">{top3[1].username}</div>
-                            <div className="w-full h-24 bg-stone-200 rounded-t-xl relative flex items-center justify-center border-t border-l border-r border-white/50 shadow-sm">
-                                <span className="font-bold text-stone-500 text-xl">{top3[1].score}</span>
-                                <div className="absolute -top-3 bg-stone-300 rounded-full p-1 border-2 border-white">
-                                    <span className="text-xs font-bold text-white px-1">2</span>
-                                </div>
-                            </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {top3.map(entry => (
+                        <div key={entry.username} className={cn("rounded-2xl border p-5 text-center space-y-2", entry.rank === 1 ? "bg-yellow-100 border-yellow-300" : "bg-stone-50 border-stone-200")}>
+                            <div className="flex items-center justify-center gap-2">{getRankIcon(entry.rank! - 1)}<span className="text-sm font-semibold">#{entry.rank}</span></div>
+                            <div className="font-bold text-stone-800 break-words">{entry.username}</div>
+                            <div className="font-mono text-2xl font-bold text-stone-700">{formatScore(entry.score, scoringRule)}</div>
+                            <div className="text-xs text-stone-500">{scoringRule === 'brier' ? 'Average Brier score' : 'Total points'}</div>
                         </div>
-                    )}
-
-                    {/* Gold */}
-                    {top3[0] && (
-                        <div className="flex flex-col items-center z-10 -mx-2">
-                            <div className="mb-2 flex flex-col items-center">
-                                <Trophy className="w-8 h-8 text-yellow-500 animate-bounce" />
-                                <div className="text-lg font-bold text-stone-800 truncate max-w-full text-center">{top3[0].username}</div>
-                            </div>
-                            <div className="w-full h-32 bg-yellow-300 rounded-t-xl relative flex items-center justify-center border-t border-l border-r border-white/50 shadow-lg bg-gradient-to-b from-yellow-300 to-yellow-400">
-                                <span className="font-bold text-yellow-900 text-3xl">{top3[0].score}</span>
-                                <div className="absolute -top-3 bg-yellow-500 rounded-full p-1 border-2 border-white shadow">
-                                    <span className="text-xs font-bold text-white px-2">1</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Bronze */}
-                    {top3[2] && (
-                        <div className="flex flex-col items-center">
-                            <div className="text-sm font-bold text-stone-500 mb-2 truncate max-w-full text-center">{top3[2].username}</div>
-                            <div className="w-full h-20 bg-orange-200 rounded-t-xl relative flex items-center justify-center border-t border-l border-r border-white/50 shadow-sm">
-                                <span className="font-bold text-orange-800 text-xl">{top3[2].score}</span>
-                                <div className="absolute -top-3 bg-orange-300 rounded-full p-1 border-2 border-white">
-                                    <span className="text-xs font-bold text-white px-1">3</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    ))}
                 </div>
             )}
 
@@ -280,6 +222,8 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                             <button
                                 onClick={() => setShowBots(prev => !prev)}
                                 disabled={isGeneratingBots}
+                                aria-label="Include bots in standings"
+                                aria-pressed={showBots}
                                 className={cn("w-8 h-4 rounded-full relative transition-colors duration-300",
                                     showBots ? "bg-stone-800" : "bg-stone-300",
                                     isGeneratingBots && "opacity-60 cursor-not-allowed"
@@ -291,7 +235,7 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                             </button>
                         </div>
                     </div>
-                    <span className="text-xs text-stone-400">{displayedScores.length} Ranked</span>
+                    <span className="text-xs text-stone-400">{displayedScores.filter(s => s.rank !== null).length} Ranked</span>
                 </div>
 
                 {/* Bot Explainer */}
@@ -305,24 +249,25 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                 )}
 
                 <div className="divide-y divide-stone-100">
-                    {displayedScores.map((s, idx) => (
+                    {displayedScores.map((s) => (
                         <div key={s.username} className={cn("flex items-center justify-between p-4 hover:bg-stone-50 transition-colors",
-                            idx < 3 ? "bg-stone-50/50" : ""
+                            s.rank !== null && s.rank <= 3 ? "bg-stone-50/50" : ""
                         )}>
                             <div className="flex items-center gap-4">
-                                <div className="w-8 flex justify-center">{getRankIcon(idx)}</div>
+                                <div className="w-8 flex justify-center">{s.rank === null ? '—' : getRankIcon(s.rank - 1)}</div>
                                 <span className={cn("font-medium flex items-center gap-2",
-                                    idx === 0 ? "text-stone-900 font-bold" : "text-stone-700"
+                                    s.rank === 1 ? "text-stone-900 font-bold" : "text-stone-700"
                                 )}>
                                     {s.username}
                                     {botValues.includes(s.username) && <Bot className="w-3 h-3 text-stone-300" />}
                                 </span>
                             </div>
-                            <span className={cn("font-mono font-medium",
-                                s.score > 0 ? "text-green-600" : s.score < 0 ? "text-rose-600" : "text-stone-400"
-                            )}>
-                                {s.score > 0 ? `+${s.score}` : s.score}
-                            </span>
+                            <div className="text-right">
+                                <span className="font-mono font-medium text-stone-700">{formatScore(s.score, scoringRule)}</span>
+                                <div className="text-xs text-stone-400">
+                                    {s.score === null ? (s.submittedCount === 0 ? 'No bets submitted' : 'Awaiting outcomes') : `${s.resolvedCount} scored · ${s.defaultCount} default bets`}
+                                </div>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -368,9 +313,9 @@ export function ResultsView({ year, isLocked = false }: { year: number, isLocked
                 </div>
 
                 {viewMode === 'summary' ? (
-                    <ResultsSummary year={year} familyId={viewingFamily?.id} />
+                    <ResultsSummary year={year} familyId={viewingFamily?.id} scoringRule={scoringRule} />
                 ) : viewMode === 'stats' ? (
-                    <ResultsStats year={year} familyId={viewingFamily?.id} />
+                    <ResultsStats year={year} familyId={viewingFamily?.id} scoringRule={scoringRule} />
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
                         {predictions.map((pred) => (

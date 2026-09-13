@@ -10,6 +10,7 @@ import {
     PredictionCategory
 } from "@/utils/predictions"
 import { cn } from "@/utils/cn"
+import { calculateStandings, forecastProbability, formatScore, scoreForecast, ScoringRule } from "@/utils/scoring"
 
 type Prediction = {
     id: string
@@ -25,50 +26,20 @@ type Bet = {
     user: { username: string }
 }
 
-function getScore(pred: Prediction, prob: number) {
-    if (pred.did_happen === null) return null
-    if (pred.did_happen) return prob - 50
-    return 50 - prob
-}
-
-export function ResultsSummary({ year, familyId }: { year: number; familyId?: string }) {
+export function ResultsSummary({ year, familyId, scoringRule = 'brier' }: { year: number; familyId?: string; scoringRule?: ScoringRule }) {
     const [predictions, setPredictions] = useState<Prediction[]>([])
     const [bets, setBets] = useState<Record<string, Record<string, number>>>({}) // [predId][username] -> prob
     const [users, setUsers] = useState<string[]>([])
     const [loading, setLoading] = useState(true)
     const [sortMode, setSortMode] = useState<'alpha' | 'avg_bullishness' | 'score'>('score')
 
-    const sortedUsers = useMemo(() => {
-        if (sortMode === 'alpha') {
-            return [...users].sort()
-        }
-
-        const averages: Record<string, number> = {}
-        const scores: Record<string, number> = {}
-
-        users.forEach(u => {
-            let total = 0
-            let count = 0
-            predictions.forEach(pred => {
-                const val = bets[pred.id]?.[u]
-                if (val !== undefined) {
-                    total += val
-                    count += 1
-                    const score = getScore(pred, val)
-                    if (score !== null) {
-                        scores[u] = (scores[u] || 0) + score
-                    }
-                }
-            })
-            averages[u] = count > 0 ? total / count : 0
-        })
-
-        if (sortMode === 'avg_bullishness') {
-            return [...users].sort((a, b) => (averages[b] ?? 0) - (averages[a] ?? 0))
-        }
-
-        return [...users].sort((a, b) => (scores[b] ?? 0) - (scores[a] ?? 0))
-    }, [users, predictions, bets, sortMode])
+    const standings = useMemo(() => calculateStandings(predictions, Object.entries(bets).flatMap(([prediction_id, forecasts]) =>
+        Object.entries(forecasts).map(([username, probability]) => ({ prediction_id, probability, user: { username } }))
+    ), scoringRule), [predictions, bets, scoringRule])
+    const scoresByUser = new Map(standings.map(standing => [standing.username, standing]))
+    const sortedUsers = sortMode === 'alpha' ? [...users].sort()
+        : sortMode === 'avg_bullishness' ? [...standings].sort((a, b) => b.bullishness - a.bullishness).map(s => s.username)
+        : standings.map(s => s.username)
 
     useEffect(() => {
         async function load() {
@@ -109,8 +80,9 @@ export function ResultsSummary({ year, familyId }: { year: number; familyId?: st
                 })
 
                 // Process Bets
-                betsData.forEach((b: any) => {
-                    const username = b.user.username
+                betsData.forEach((b: Bet) => {
+                    const username = b.user?.username
+                    if (!username) return
                     userSet.add(username)
 
                     if (!betsMap[b.prediction_id]) betsMap[b.prediction_id] = {}
@@ -129,8 +101,10 @@ export function ResultsSummary({ year, familyId }: { year: number; familyId?: st
 
     return (
         <div className="overflow-x-auto max-h-[70vh] overflow-y-auto rounded-xl border border-stone-200 shadow-sm text-sm">
-            <div className="px-4 py-3 border-b border-stone-100 bg-stone-50 flex items-center justify-end">
+            <div className="px-4 py-3 border-b border-stone-100 bg-stone-50 flex items-center justify-between gap-3">
+                <span className="text-xs text-stone-500">{scoringRule === 'brier' ? 'Brier score · Lower is better · Default bets: 50%' : 'Old scoring · Higher is better'}</span>
                 <select
+                    aria-label="Sort results columns"
                     value={sortMode}
                     onChange={(e) => setSortMode(e.target.value as 'alpha' | 'avg_bullishness' | 'score')}
                     className="h-8 px-2 rounded-md border border-stone-200 bg-white text-xs text-stone-600"
@@ -192,9 +166,9 @@ export function ResultsSummary({ year, familyId }: { year: number; familyId?: st
 
                             {/* User Scores */}
                             {sortedUsers.map(u => {
-                                const val = bets[pred.id]?.[u] ?? 50
+                                const val = forecastProbability(bets[pred.id]?.[u])
                                 const isDefault = bets[pred.id]?.[u] === undefined
-                                const score = getScore(pred, val)
+                                const score = scoreForecast(val, pred.did_happen, scoringRule)
 
                                 return (
                                     <td key={u} className="px-2 py-3 text-center border-l border-dotted border-stone-100">
@@ -203,14 +177,14 @@ export function ResultsSummary({ year, familyId }: { year: number; familyId?: st
                                                 "text-sm font-semibold mb-1",
                                                 isDefault ? "text-stone-400" : "text-stone-600"
                                             )}>
-                                                {val}%
+                                                {val}%{isDefault && <span className="block text-[10px] font-normal">default</span>}
                                             </span>
                                             {score !== null ? (
                                                 <span className={cn(
                                                     "font-bold font-mono text-sm",
-                                                    score > 0 ? "text-green-600" : score < 0 ? "text-rose-600" : "text-stone-400"
+                                                    "text-stone-700"
                                                 )}>
-                                                    {score > 0 ? "+" : ""}{score}
+                                                    {formatScore(score, scoringRule)}
                                                 </span>
                                             ) : (
                                                 <span className="text-stone-300 text-xs">-</span>
@@ -229,23 +203,20 @@ export function ResultsSummary({ year, familyId }: { year: number; familyId?: st
                 <tfoot className="bg-stone-50 border-t-2 border-stone-200">
                     <tr>
                         <td colSpan={2} className="px-4 py-4 text-right font-bold text-stone-600 uppercase text-xs tracking-wider sticky left-0 bg-stone-50 z-10 border-r border-stone-200">
-                            Total Points
+                            {scoringRule === 'brier' ? 'Average Brier score' : 'Total Points'}
                         </td>
                         {sortedUsers.map(u => {
-                            const totalScore = predictions.reduce((acc, pred) => {
-                                const val = bets[pred.id]?.[u] ?? 50
-                                const score = getScore(pred, val)
-                                return acc + (score || 0)
-                            }, 0)
+                            const totalScore = scoresByUser.get(u)?.score ?? null
 
                             return (
                                 <td key={u} className="px-2 py-4 text-center border-l border-stone-200">
                                     <span className={cn(
                                         "font-bold font-mono text-base",
-                                        totalScore > 0 ? "text-green-700" : totalScore < 0 ? "text-rose-700" : "text-stone-500"
+                                        "text-stone-700"
                                     )}>
-                                        {totalScore > 0 ? "+" : ""}{totalScore}
+                                        {formatScore(totalScore, scoringRule)}
                                     </span>
+                                    <div className="text-[10px] text-stone-400">{totalScore === null ? 'Unranked' : `${scoresByUser.get(u)?.resolvedCount} scored`}</div>
                                 </td>
                             )
                         })}
@@ -256,7 +227,7 @@ export function ResultsSummary({ year, familyId }: { year: number; familyId?: st
                         </td>
                         {sortedUsers.map(u => {
                             const totalProb = predictions.reduce((acc, pred) => {
-                                const val = bets[pred.id]?.[u] ?? 50
+                                const val = forecastProbability(bets[pred.id]?.[u])
                                 return acc + val
                             }, 0)
                             const avg = Math.round(totalProb / (predictions.length || 1))
